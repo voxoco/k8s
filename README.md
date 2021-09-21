@@ -43,7 +43,7 @@ There are `secrets` referenced in the manifests. Be sure to create the necessary
 
 Run `./install.sh` with options below
 ```
-Usage: ./create.sh [option...]" >&2
+Usage: ./install.sh [option...]" >&2
 
 -p, --project-id         Your google cloud project ID (required)"
 -r, --regions            Specify the region(s) seperated by a space. (optional - defaults to 'us-central1 us-east1 us-east4')"
