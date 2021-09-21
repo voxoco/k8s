@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kamailio
+  namespace: voip
+  labels:
+    component: kamailio
+spec:
+  selector:
+    matchLabels:
+      component: kamailio
+  template:
+    metadata:
+      name: kamailio
+      labels:
+        component: kamailio
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: external
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 2
+      serviceAccountName: manager
+      containers:
+        - name: kamailio-sidecar
+          image: ghcr.io/voxoco/kamailio-sidecar:latest
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: NATSURL
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: connectionString
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: MYSQLKAM
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: PODNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - containerPort: 42184
+            - containerPort: 9105
+        - name: voipmonitor
+          image: ghcr.io/voxoco/voipmonitor:latest
+          ports:
+            - name: manager
+              protocol: TCP
+              containerPort: 5029
+        - name: kamailio
+          image: ghcr.io/voxoco/kamailio:latest
+          ports:
+            - name: sip1
+              protocol: UDP
+              containerPort: 5060
+            - name: sip2
+              protocol: UDP
+              containerPort: 5061
+            - name: sip3
+              protocol: UDP
+              containerPort: 8060
+            - name: webrtc
+              protocol: TCP
+              containerPort: 8080
+            - name: http
+              protocol: TCP
+              containerPort: 42185
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: PODNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NATSURL
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: connectionString
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: MYSQLKAM
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: APIBANKEY
+              valueFrom:
+                secretKeyRef:
+                  name: apiban-key
+                  key: key
+            - name: DMQHOST
+              valueFrom:
+                secretKeyRef:
+                  name: kamailio-dmq
+                  key: dns
+            - name: SERVERID
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: serverId
+            - name: FAILSERVERID
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: failServerId
+            - name: FAILSERVERID2
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: failServerId2
+            - name: DISPATCHMODE
+              value: "4"
+          securityContext:
+            privileged: true
+            capabilities:
+              add: [ "NET_ADMIN" ]
+      imagePullSecrets:
+        - name: regcred
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kamailio-metrics
+  namespace: voip
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9105'
+spec:
+  clusterIP: None
+  selector:
+    component: kamailio
+  ports:
+    - name: metrics
+      port: 9105
+      protocol: TCP

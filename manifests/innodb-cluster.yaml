@@ -1,0 +1,170 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: innodb-cluster
+  namespace: voip
+spec:
+  serviceName: "innodb-cluster"
+  replicas: 2
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: innodb-cluster
+  template:
+    metadata:
+      labels:
+        app: innodb-cluster
+    spec:
+      volumes:
+        - name: conf
+          emptyDir: {}
+      initContainers:
+        - name: init
+          image: ghcr.io/voxoco/innodb-cluster:latest
+          command: ["bash", "/init.sh"]
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: MYSQLSERVERID
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: serverId
+          volumeMounts:
+            - name: conf
+              mountPath: /mnt/conf.d
+      containers:
+        - name: mysqld-exporter
+          image: prom/mysqld-exporter
+          env:
+            - name: DATA_SOURCE_NAME
+              value: mysqld-exporter:123456@(127.0.0.1:3306)/
+          ports:
+            - containerPort: 9104
+        - name: sidecar
+          image: ghcr.io/voxoco/innodb-cluster:latest
+          command: ["bash", "/sidecar.sh"]
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: AWS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws
+                  key: accessKey
+            - name: AWS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws
+                  key: secretAccessKey
+            - name: CLUSTER_LEADER
+              value: us-central1
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-root-pw
+                  key: pw
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: BACKUP_INTERVAL
+              value: "43200"
+          volumeMounts:
+            - name: data
+              mountPath: /mnt/data/mysql
+        - name: mysql
+          image: ghcr.io/voxoco/innodb-cluster:latest
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-root-pw
+                  key: pw
+            - name: MYSQL_ROOT_HOST
+              value: '%'
+            - name: TZ
+              value: America/Chicago
+          ports:
+            - containerPort: 3306
+              name: mysql
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/mysql
+            - name: data
+              mountPath: /var/lib/mysql
+      imagePullSecrets:
+        - name: regcred
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: premium-rwo
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: voip
+  labels:
+    app: innodb-cluster
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+  selector:
+    app: innodb-cluster
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: innodb-cluster
+  namespace: voip
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: innodb-cluster
+  clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqld-metrics
+  namespace: voip
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9104'
+spec:
+  clusterIP: None
+  selector:
+    app: innodb-cluster
+  ports:
+    - name: metrics
+      port: 9104
+      protocol: TCP
+---
+kind: ServiceExport
+apiVersion: net.gke.io/v1
+metadata:
+  namespace: voip
+  name: innodb-cluster

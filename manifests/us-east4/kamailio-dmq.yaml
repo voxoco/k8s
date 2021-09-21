@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: us-east4-dmq
+  namespace: voip
+spec:
+  clusterIP: None
+  selector:
+    component: kamailio
+  ports:
+    - name: dmq
+      port: 5061
+      protocol: UDP
+---
+kind: ServiceExport
+apiVersion: net.gke.io/v1
+metadata:
+  namespace: voip
+  name: us-east4-dmq

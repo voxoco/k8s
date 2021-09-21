@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnia-api
+  namespace: voip
+  labels:
+    component: omnia-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: omnia-api
+  template:
+    metadata:
+      labels:
+        component: omnia-api
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      containers:
+        - name: omnia-api
+          image: ghcr.io/voxoco/omnia-api:latest
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: NATSURL
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: connectionString
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: AUTHSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-auth-secret
+                  key: authSecret
+            - name: PORT
+              value: "3030"
+            - name: SOCKETPORT
+              value: "3031"
+            - name: NODE_ENV
+              value: "production"
+      imagePullSecrets:
+        - name: regcred
