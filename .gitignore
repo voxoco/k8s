@@ -14,3 +14,4 @@ node_modules
 *.njsproj
 *.sln
 secrets/secrets.yaml
+secrets/secrets.yml

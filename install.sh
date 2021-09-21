@@ -185,8 +185,8 @@ for REGION in ${REGIONS}; do
   # Deploy all other services (order is important)
   kubectl apply -f manifests/kube-client.yaml
 
-  echo "Sleeping 2 minutes..."
-  sleep 120
+  echo "Sleeping 3 minutes..."
+  sleep 180
 
   kubectl apply -f manifests/jobs.yaml
 
