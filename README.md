@@ -4,7 +4,11 @@
 
 ## Overview
 
-Interactive view [click here](https://isoflow.io/project/cknuw4pyddjjq0738cnikqcbv)
+Slides [click here](https://vibrant-easley-d0491e.netlify.app)
+
+Demo video [click here](https://www.youtube.com/watch?v=MZDJuwR31KI)
+
+Interactive diagram view [click here](https://isoflow.io/project/cknuw4pyddjjq0738cnikqcbv)
 
 ![Image](https://isoflow.io/project/image/cknuw4pyddjjq0738cnikqcbv)
 
