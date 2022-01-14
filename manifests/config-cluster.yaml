@@ -1,7 +1,7 @@
 apiVersion: networking.gke.io/v1
 kind: MultiClusterService
 metadata:
-  name: kamailio
+  name: kamailio-mcs
   namespace: voip
   labels:
     component: kamailio
@@ -19,22 +19,10 @@ spec:
 
 ---
 
-apiVersion: cloud.google.com/v1
-kind: BackendConfig
-metadata:
-  name: webrtc-kamailio
-  namespace: voip
-spec:
-  timeoutSec: 1800
-  connectionDraining:
-    drainingTimeoutSec: 1
-
----
-
 apiVersion: networking.gke.io/v1
 kind: MultiClusterService
 metadata:
-  name: omnia-api
+  name: omnia-api-mcs
   namespace: voip
   annotations:
     beta.cloud.google.com/backend-config: '{"ports": {"3031":"socket-api"}}'
@@ -56,6 +44,18 @@ spec:
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
 metadata:
+  name: webrtc-kamailio
+  namespace: voip
+spec:
+  timeoutSec: 1800
+  connectionDraining:
+    drainingTimeoutSec: 1
+
+---
+
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
   name: socket-api
   namespace: voip
 spec:
@@ -69,6 +69,17 @@ spec:
 
 ---
 
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: frontend-redirect
+  namespace: voip
+spec:
+  redirectToHttps:
+    enabled: true
+
+---
+
 apiVersion: networking.gke.io/v1
 kind: MultiClusterIngress
 metadata:
@@ -77,11 +88,12 @@ metadata:
   annotations:
     networking.gke.io/static-ip: 34.117.222.234
     networking.gke.io/pre-shared-certs: "kube-api-voxo-co, api-voxo-co"
+    networking.gke.io/frontend-config: frontend-redirect
 spec:
   template:
     spec:
       backend:
-        serviceName: omnia-api
+        serviceName: omnia-api-mcs
         servicePort: 3030
       rules:
         - host: kube-api.voxo.co
@@ -89,13 +101,13 @@ spec:
             paths:
               - path: /
                 backend:
-                  serviceName: omnia-api
+                  serviceName: omnia-api-mcs
                   servicePort: 3030
               - path: /socket.io/
                 backend:
-                  serviceName: omnia-api
+                  serviceName: omnia-api-mcs
                   servicePort: 3031
               - path: /webrtc
                 backend:
-                  serviceName: kamailio
+                  serviceName: kamailio-mcs
                   servicePort: 8080

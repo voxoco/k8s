@@ -32,11 +32,7 @@ data:
       connect_retries: 30
       advertise: $ADVERTISE
 
-      gateways: [
-        {name: "us-east1", urls: ["nats://nats-0.us-east1.nats.voip.svc.clusterset.local:7522", "nats://nats-1.us-east1.nats.voip.svc.clusterset.local:7522", "nats://nats-2.us-east1.nats.voip.svc.clusterset.local:7522"]},
-        {name: "us-east4", urls: ["nats://nats-0.us-east4.nats.voip.svc.clusterset.local:7522", "nats://nats-1.us-east4.nats.voip.svc.clusterset.local:7522", "nats://nats-2.us-east4.nats.voip.svc.clusterset.local:7522"]},
-        {name: "us-central1", urls: ["nats://nats-0.us-central1.nats.voip.svc.clusterset.local:7522", "nats://nats-1.us-central1.nats.voip.svc.clusterset.local:7522", "nats://nats-2.us-central1.nats.voip.svc.clusterset.local:7522"]}
-      ]
+      gateways: $GATEWAYS
 
     }
 ---
@@ -69,14 +65,26 @@ spec:
       # Required to be able to HUP signal and apply config reload
       # to the server without restarting the pod.
       shareProcessNamespace: true
-
-      #################
-      #  NATS Server  #
-      #################
       terminationGracePeriodSeconds: 60
       containers:
+        - name: nats-exporter
+          image: natsio/prometheus-nats-exporter:latest
+          args:
+            - -varz
+            - -use_internal_server_id
+            - http://localhost:8222/
+          ports:
+            - containerPort: 7777
+              name: metrics
         - name: nats
           image: nats:alpine
+          resources:
+            requests:
+              memory: 200Mi
+              cpu: 200m
+            limits:
+              memory: 500Mi
+              cpu: 1000m
           ports:
             - containerPort: 4222
               name: client
@@ -88,8 +96,6 @@ spec:
               name: cluster
             - containerPort: 8222
               name: monitor
-            - containerPort: 7777
-              name: metrics
           command:
             - "nats-server"
             - "--config"
@@ -119,15 +125,14 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: ADVERTISE
-              value: $(POD_NAME).$(NAME).nats.$(POD_NAMESPACE).svc.clusterset.local
+              value: $(POD_NAME).nats.$(POD_NAMESPACE).svc.$(NAME)
+            - name: GATEWAYS
+              value: '[{name: "us-east1", url: "nats://nats.$(POD_NAMESPACE).svc.us-east1:7522"}, {name: "us-east4", url: "nats://nats.$(POD_NAMESPACE).svc.us-east4:7522"}, {name: "us-central1", url: "nats://nats.$(POD_NAMESPACE).svc.us-central1:7522"}]'
           volumeMounts:
             - name: config-volume
               mountPath: /etc/nats-config
             - name: pid
               mountPath: /var/run/nats
-
-          # Liveness/Readiness probes against the monitoring
-          #
           livenessProbe:
             httpGet:
               path: /
@@ -140,9 +145,6 @@ spec:
               port: 8222
             initialDelaySeconds: 10
             timeoutSeconds: 5
-
-          # Gracefully stop NATS Server on pod deletion or image upgrade.
-          #
           lifecycle:
             preStop:
               exec:
@@ -163,39 +165,22 @@ spec:
   selector:
     app: nats
   clusterIP: None
-  ports:
-    - name: client
-      port: 4222
-    - name: cluster
-      port: 6222
-    - name: monitor
-      port: 8222
-    - name: metrics
-      port: 7777
-    - name: leafnodes
-      port: 7422
-    - name: gateways
-      port: 7522
 ---
-kind: ServiceExport
-apiVersion: net.gke.io/v1
+apiVersion: monitoring.gke.io/v1alpha1
+kind: PodMonitor
 metadata:
-  namespace: voip
   name: nats
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nats-metrics
   namespace: voip
-  annotations:
-    prometheus.io/scrape: 'true'
-    prometheus.io/port: '7777'
 spec:
-  clusterIP: None
   selector:
-    nats_cluster: nats
-  ports:
-    - name: metrics
-      port: 7777
-      protocol: TCP
+    matchLabels:
+      app: nats
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 1m
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "(gnatsd_varz_cluster_name|gnatsd_varz_connections|gnatsd_varz_cpu|gnatsd_varz_gateway_name|gnatsd_varz_in_bytes|gnatsd_varz_out_bytes|gnatsd_varz_in_msgs|gnatsd_varz_out_msgs|gnatsd_varz_max_connections|gnatsd_varz_mem|gnatsd_varz_routes|gnatsd_varz_server_id|gnatsd_varz_subscriptions|gnatsd_varz_total_connections|)"
+          action: keep

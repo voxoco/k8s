@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: asterisk
+  name: ast
   namespace: voip
   labels:
     component: asterisk
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       component: asterisk
@@ -39,7 +39,7 @@ spec:
       initContainers:
         - name: init
           image: ghcr.io/voxoco/asterisk:latest
-          command: ["bash", "-c", "mkdir /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/voicemail && cp -r /voxo-sounds/ /var/lib/asterisk/sounds"]
+          command: ["bash", "-c", "mkdir /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/voicemail && cp -r /sounds/ /var/lib/asterisk/sounds"]
           volumeMounts:
             - name: logs
               mountPath: /var/log/asterisk
@@ -92,6 +92,10 @@ spec:
               mountPath: /var/secrets/google
         - name: presence
           image: ghcr.io/voxoco/presence:latest
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 9102
           env:
             - name: TZ
               value: America/Chicago
@@ -107,6 +111,13 @@ spec:
                   key: connectionString
         - name: asterisk
           image: ghcr.io/voxoco/asterisk:latest
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 2000m
+            limits:
+              memory: 2Gi
+              cpu: 4000m
           ports:
             - containerPort: 5080
           lifecycle:
@@ -137,19 +148,57 @@ spec:
 
 ---
 
-apiVersion: v1
-kind: Service
+apiVersion: monitoring.gke.io/v1alpha1
+kind: PodMonitor
 metadata:
-  name: asterisk-metrics
+  name: asterisk
   namespace: voip
-  annotations:
-    prometheus.io/scrape: 'true'
-    prometheus.io/port: '9102'
 spec:
-  clusterIP: None
   selector:
-    component: asterisk
-  ports:
-    - name: metrics
-      port: 9102
-      protocol: TCP
+    matchLabels:
+      component: asterisk
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      scheme: http
+      interval: 1m
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "(asterisk_active_user_calls)"
+          action: drop
+
+---
+
+apiVersion: autoscaling.gke.io/v1beta1
+kind: MultidimPodAutoscaler
+metadata:
+  name: asterisk
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ast
+  goals:
+    metrics:
+      - type: Resource
+        resource:
+          # Define the target CPU utilization request here
+          name: cpu
+          target:
+            type: Utilization
+            averageUtilization: 90
+  constraints:
+    global:
+      minReplicas: 1
+      maxReplicas: 5
+    containerControlledResources: [ memory ]
+    container:
+      - name: '*'
+        # Define boundaries for the memory request here
+        requests:
+          minAllowed:
+            memory: 1Gi
+          maxAllowed:
+            memory: 2Gi
+  policy:
+    updateMode: Auto

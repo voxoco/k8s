@@ -24,8 +24,18 @@ spec:
       containers:
         - name: rtpengine
           image: ghcr.io/voxoco/rtpengine:latest
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 2000m
+            limits:
+              memory: 3Gi
+              cpu: 3000m
           ports:
-            - containerPort: 22222
+            - name: metrics
+              containerPort: 22223
+            - name: control
+              containerPort: 22222
           lifecycle:
             preStop:
               exec:
@@ -35,6 +45,8 @@ spec:
               value: America/Chicago
             - name: CLOUD
               value: gcp
+            - name: HOMER
+              value: 10.142.15.196:9060
         - name: rtpengine-sidecar
           image: ghcr.io/voxoco/rtpengine-sidecar:latest
           ports:
@@ -65,24 +77,26 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
       imagePullSecrets:
         - name: regcred
 
 ---
 
-apiVersion: v1
-kind: Service
+apiVersion: monitoring.gke.io/v1alpha1
+kind: PodMonitor
 metadata:
-  name: rtpengine-metrics
+  name: rtpengine
   namespace: voip
-  annotations:
-    prometheus.io/scrape: 'true'
-    prometheus.io/port: '22223'
 spec:
-  clusterIP: None
   selector:
-    component: rtpengine
-  ports:
-    - name: metrics
-      port: 22223
-      protocol: TCP
+    matchLabels:
+      component: rtpengine
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 1m

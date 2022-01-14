@@ -110,15 +110,15 @@ for REGION in ${REGIONS}; do
   sleep 10
 
   # Create cluster
-  gcloud beta container --project "$PROJECT_ID" clusters create "$REGION" --zone "$ZONE" --no-enable-basic-auth --cluster-version "1.20" --release-channel "None" --machine-type "c2-standard-4" --image-type "COS_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --enable-stackdriver-kubernetes --enable-ip-alias --network "projects/$PROJECT_ID/global/networks/default" --subnetwork "projects/$PROJECT_ID/regions/$REGION/subnetworks/default" --default-max-pods-per-node "110" --enable-autoscaling --min-nodes "1" --max-nodes "4" --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --workload-pool "$PROJECT_ID.svc.id.goog" --enable-shielded-nodes --node-locations "$ZONE"
-  gcloud beta container --project "$PROJECT_ID" node-pools create "external" --cluster "$REGION" --zone "$ZONE" --machine-type "c2-standard-4" --image-type "COS_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "external-rtp","external-sip" --node-locations "$ZONE"
+  gcloud beta container --project "$PROJECT_ID" clusters create "$REGION" --zone "$ZONE" --no-enable-basic-auth --cluster-version "1.21" --release-channel "None" --machine-type "c2-standard-4" --image-type "COS_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --max-pods-per-node "110" --num-nodes "1"  --enable-ip-alias --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM,WORKLOAD --network "projects/$PROJECT_ID/global/networks/default" --subnetwork "projects/$PROJECT_ID/regions/$REGION/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --enable-autoscaling --autoscaling-profile optimize-utilization --min-nodes "1" --max-nodes "4" --enable-dataplane-v2 --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --workload-pool "$PROJECT_ID.svc.id.goog" --enable-vertical-pod-autoscaling --enable-shielded-nodes --node-locations "$ZONE" --cluster-dns clouddns --cluster-dns-scope vpc --cluster-dns-domain $REGION
+  gcloud beta container --project "$PROJECT_ID" node-pools create "external" --cluster "$REGION" --zone "$ZONE" --machine-type "c2-standard-4" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "external-rtp","external-sip" --node-locations "$ZONE"
 
   # Create GKE Multi Cluster Service stuff
   gcloud services enable gkehub.googleapis.com multiclusterservicediscovery.googleapis.com dns.googleapis.com trafficdirector.googleapis.com cloudresourcemanager.googleapis.com --project $PROJECT_ID
-  gcloud alpha container hub multi-cluster-services enable --project $PROJECT_ID
+  gcloud container hub multi-cluster-services enable --project $PROJECT_ID
   gcloud container hub memberships register $REGION --gke-cluster "$ZONE/$REGION" --enable-workload-identity
   gcloud projects add-iam-policy-binding $PROJECT_ID --member "serviceAccount:$PROJECT_ID.svc.id.goog[gke-mcs/gke-mcs-importer]" --role "roles/compute.networkViewer"
-  gcloud alpha container hub multi-cluster-services describe
+  gcloud container hub multi-cluster-services describe
 
   echo "Sleeping 10 seconds..."
   sleep 10
@@ -132,18 +132,50 @@ for REGION in ${REGIONS}; do
   kubectl apply -f manifests/rbac.yaml
   kubectl apply -f secrets/secrets.yaml
 
-  # Create ConfigMap with cluster details
-  kubectl apply -f manifests/$REGION/cluster-details.yaml
+  if [ "$FRESH_INSTALL" == "yes" ]; then
 
-  # Create ConfigMap with the project id (used by prometheus)
-  echo "
-  apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: gcp-project
-    namespace: voip
-  data:
-    projectId: $PROJECT_ID" | kubectl apply -f -
+    FAILSERVER_ID=0
+    FAILSERVER_ID2=0
+    # Loop through clusters to get the subnet (to be used in the cluster-details ConfigMap
+    for REGIONNAME in ${REGIONS}; do
+      SUBNET=$(gcloud compute networks subnets describe default --region=$REGIONNAME | grep "gatewayAddress" | awk -F '.' '{print $2}')
+      echo "Subnet for $REGIONNAME, ID: $INC = $SUBNET"
+
+      if [ "$REGIONNAME" == "$REGION" ]; then
+        echo "Subnet for myself is $SUBNET"
+        SERVER_ID=$SUBNET
+      else
+        if [ $FAILSERVER_ID == 0 ]; then
+          FAILSERVER_ID=$SUBNET
+        else
+          FAILSERVER_ID2=$SUBNET
+        fi
+      fi
+
+    done
+
+    # INT to String variables
+    SERVER_ID=\"$SERVER_ID\"
+    FAILSERVER_ID=\"$FAILSERVER_ID\"
+    FAILSERVER_ID2=\"$FAILSERVER_ID2\"
+
+    # Create cluster-details ConfigMap
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-details
+  namespace: voip
+data:
+  projectId: $PROJECT_ID
+  serverId: $SERVER_ID
+  failServerId: $FAILSERVER_ID
+  failServerId2: $FAILSERVER_ID2
+  clusterName: $REGION
+  zone: $ZONE
+EOF
+
+  fi
 
   echo "Sleeping 10 seconds..."
   sleep 10
@@ -160,7 +192,7 @@ for REGION in ${REGIONS}; do
 
   # Check if config cluster
   if [ "$CONFIG_REGION" == "$REGION" ] && [ "$FRESH_INSTALL" == "yes" ]; then
-    gcloud alpha container hub ingress enable --config-membership=projects/$PROJECT_ID/locations/global/memberships/$REGION
+    gcloud beta container hub ingress enable --config-membership=$REGION
 
     echo "Sleeping 10 seconds..."
     sleep 10
@@ -172,21 +204,18 @@ for REGION in ${REGIONS}; do
   echo "Sleeping 20 seconds..."
   sleep 20
 
-  # Deploy region specific stuff
-  kubectl apply -f manifests/$REGION/kamailio-dmq.yaml
-
   # Deploy innodb-cluster
   kubectl apply -f manifests/innodb-cluster.yaml
 
   # Since the db relies on MCS and GCP takes 5 minutes to sync Service Exports between the fleet of clusters we need to wait
-  echo "Sleeping 6 minutes to give db time to come up"
-  sleep 360
+  echo "Sleeping 3 minutes to give db time to come up"
+  sleep 180
 
   # Deploy all other services (order is important)
   kubectl apply -f manifests/kube-client.yaml
 
-  echo "Sleeping 3 minutes..."
-  sleep 180
+  echo "Sleeping 2 minutes..."
+  sleep 120
 
   kubectl apply -f manifests/jobs.yaml
 

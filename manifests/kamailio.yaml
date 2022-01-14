@@ -51,16 +51,42 @@ spec:
                 fieldRef:
                   fieldPath: status.podIP
           ports:
-            - containerPort: 42184
-            - containerPort: 9105
-        - name: voipmonitor
-          image: ghcr.io/voxoco/voipmonitor:latest
-          ports:
-            - name: manager
-              protocol: TCP
-              containerPort: 5029
+            - name: http
+              containerPort: 42184
+            - name: metrics
+              containerPort: 9105
+        - name: heplify
+          image: sipcapture/heplify:latest
+          command:
+            - "./heplify"
+            - "-hn"
+            - "$(REGION)"
+            - "-hs"
+            - "10.142.15.196:9060"
+            - "-tcpassembly"
+            - "true"
+            - "-pr"
+            - "5060-5061"
+            - "-m"
+            - "SIP"
+            - "-e"
+            - "-dim"
+            - "OPTIONS,NOTIFY,KDMQ,REGISTER,SUBSCRIBE,PUBLISH,UPDATE"
+          env:
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
         - name: kamailio
           image: ghcr.io/voxoco/kamailio:latest
+          resources:
+            requests:
+              memory: 5Gi
+              cpu: 1000m
+            limits:
+              memory: 7Gi
+              cpu: 3000m
           ports:
             - name: sip1
               protocol: UDP
@@ -138,16 +164,26 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kamailio-metrics
+  name: kamailio
   namespace: voip
-  annotations:
-    prometheus.io/scrape: 'true'
-    prometheus.io/port: '9105'
 spec:
   clusterIP: None
   selector:
     component: kamailio
-  ports:
-    - name: metrics
-      port: 9105
-      protocol: TCP
+
+---
+
+apiVersion: monitoring.gke.io/v1alpha1
+kind: PodMonitor
+metadata:
+  name: kamailio
+  namespace: voip
+spec:
+  selector:
+    matchLabels:
+      component: kamailio
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 1m

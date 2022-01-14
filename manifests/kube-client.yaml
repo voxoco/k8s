@@ -24,6 +24,13 @@ spec:
       containers:
         - name: kube-client
           image: ghcr.io/voxoco/kube-client:latest
+          resources:
+            requests:
+              memory: 200Mi
+              cpu: 200m
+            limits:
+              memory: 600Mi
+              cpu: 600m
           volumeMounts:
             - name: google-service-account
               mountPath: /var/secrets/google
@@ -51,5 +58,6 @@ spec:
                   key: serverId
             - name: TZ
               value: America/Chicago
+      serviceAccountName: manager
       imagePullSecrets:
         - name: regcred

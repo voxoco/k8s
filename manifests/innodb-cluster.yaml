@@ -15,6 +15,8 @@ spec:
       labels:
         app: innodb-cluster
     spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
       volumes:
         - name: conf
           emptyDir: {}
@@ -42,6 +44,7 @@ spec:
           volumeMounts:
             - name: conf
               mountPath: /mnt/conf.d
+      terminationGracePeriodSeconds: 10
       containers:
         - name: mysqld-exporter
           image: prom/mysqld-exporter
@@ -49,7 +52,13 @@ spec:
             - name: DATA_SOURCE_NAME
               value: mysqld-exporter:123456@(127.0.0.1:3306)/
           ports:
-            - containerPort: 9104
+            - name: metrics
+              containerPort: 9104
+          args:
+            - --no-collect.info_schema.innodb_cmpmem
+            - --no-collect.global_variables
+            - --no-collect.info_schema.innodb_metrics
+            - --no-collect.info_schema.query_response_time
         - name: sidecar
           image: ghcr.io/voxoco/innodb-cluster:latest
           command: ["bash", "/sidecar.sh"]
@@ -89,6 +98,13 @@ spec:
               mountPath: /mnt/data/mysql
         - name: mysql
           image: ghcr.io/voxoco/innodb-cluster:latest
+          resources:
+            requests:
+              memory: 4Gi
+              cpu: 800m
+            limits:
+              memory: 7Gi
+              cpu: 3000m
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
@@ -146,25 +162,40 @@ spec:
     app: innodb-cluster
   clusterIP: None
 ---
-apiVersion: v1
-kind: Service
+apiVersion: monitoring.gke.io/v1alpha1
+kind: PodMonitor
 metadata:
-  name: mysqld-metrics
-  namespace: voip
-  annotations:
-    prometheus.io/scrape: 'true'
-    prometheus.io/port: '9104'
-spec:
-  clusterIP: None
-  selector:
-    app: innodb-cluster
-  ports:
-    - name: metrics
-      port: 9104
-      protocol: TCP
----
-kind: ServiceExport
-apiVersion: net.gke.io/v1
-metadata:
-  namespace: voip
   name: innodb-cluster
+  namespace: voip
+spec:
+  selector:
+    matchLabels:
+      app: innodb-cluster
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 1m
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "(mysql_global_status_connections|mysql_global_status_opened_files|mysql_global_status_queries|mysql_global_status_threads_connected|mysql_global_status_threads_running|mysql_global_status_uptime|mysql_slave_status_slave_io_running|mysql_slave_status_slave_sql_running|mysql_up)"
+          action: keep
+---
+apiVersion: monitoring.gke.io/v1alpha1
+kind: PodMonitor
+metadata:
+  name: innodb-cluster-commands
+  namespace: voip
+spec:
+  selector:
+    matchLabels:
+      app: innodb-cluster
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 1m
+      metricRelabelings:
+        - sourceLabels: [command]
+          regex: "(insert|delete|select|update)"
+          action: keep
