@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nats
+  namespace: production
+  labels:
+    app: nats
+spec:
+  selector:
+    matchLabels:
+      app: nats
+  replicas: 3
+  serviceName: "nats"
+  template:
+    metadata:
+      labels:
+        app: nats
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+    spec:
+      # Common volumes for the containers
+      volumes:
+        - name: config-volume
+          configMap:
+            name: nats-config
+        - name: pid
+          emptyDir: {}
+
+      # Required to be able to HUP signal and apply config reload
+      # to the server without restarting the pod.
+      shareProcessNamespace: true
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: nats-exporter
+          image: natsio/prometheus-nats-exporter:latest
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+            limits:
+              memory: 100Mi
+              cpu: 20m
+          args:
+            - -varz
+            - -use_internal_server_id
+            - http://localhost:8222/
+          ports:
+            - containerPort: 7777
+              name: metrics
+        - name: nats
+          image: nats:alpine
+          resources:
+            requests:
+              memory: 200Mi
+              cpu: 200m
+            limits:
+              memory: 500Mi
+              cpu: 1000m
+          ports:
+            - containerPort: 4222
+              name: client
+              hostPort: 4222
+            - containerPort: 7422
+              name: leafnodes
+              hostPort: 7422
+            - containerPort: 6222
+              name: cluster
+            - containerPort: 8222
+              name: monitor
+          command:
+            - "nats-server"
+            - "--config"
+            - "/etc/nats-config/nats.conf"
+          env:
+            - name: NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: USER
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: user
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: pass
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ADVERTISE
+              value: $(POD_NAME).nats.$(POD_NAMESPACE).svc.$(NAME)
+            - name: GATEWAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: natsGateways
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nats-config
+            - name: pid
+              mountPath: /var/run/nats
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8222
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8222
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                # Using the alpine based NATS image, we add an extra sleep that is
+                # the same amount as the terminationGracePeriodSeconds to allow
+                # the NATS Server to gracefully terminate the client connections.
+                #
+                command: ["/bin/sh", "-c", "/nats-server -sl=ldm=/var/run/nats/nats.pid && /bin/sleep 60"]

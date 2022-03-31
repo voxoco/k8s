@@ -1,0 +1,30 @@
+apiVersion: networking.gke.io/v1
+kind: MultiClusterIngress
+metadata:
+  name: http-ingress
+  namespace: production
+  annotations:
+    networking.gke.io/static-ip: 34.117.222.234
+    networking.gke.io/pre-shared-certs: "kube-api-voxo-co, api-voxo-co"
+    networking.gke.io/frontend-config: frontend-redirect
+spec:
+  template:
+    spec:
+      backend:
+        serviceName: omnia-api-mcs
+        servicePort: 3030
+      rules:
+        - http:
+          paths:
+            - path: /
+              backend:
+                serviceName: omnia-api-mcs
+                servicePort: 3030
+            - path: /socket.io/
+              backend:
+                serviceName: omnia-api-mcs
+                servicePort: 3031
+            - path: /webrtc
+              backend:
+                serviceName: kamailio-mcs
+                servicePort: 8080

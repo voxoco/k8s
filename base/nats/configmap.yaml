@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nats-config
+  namespace: production
+data:
+  nats.conf: |
+    pid_file: "/var/run/nats/nats.pid"
+    http: 8222
+
+    authorization {
+      user: $USER,
+      password: $PASSWORD
+    }
+
+    cluster {
+      name: $NAME
+      listen: "0.0.0.0:6222"
+
+      routes = [
+        nats://nats-0.nats:6222
+        nats://nats-1.nats:6222
+        nats://nats-2.nats:6222
+      ]
+
+      connect_retries: 30
+    }
+
+    gateway {
+      name: $NAME
+      listen: "0.0.0.0:7522"
+      connect_retries: 30
+      advertise: $ADVERTISE
+
+      gateways: $GATEWAYS
+
+    }

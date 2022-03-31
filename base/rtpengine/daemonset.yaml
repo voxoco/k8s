@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: rtpengine
+  namespace: production
+  labels:
+    component: rtpengine
+spec:
+  selector:
+    matchLabels:
+      component: rtpengine
+  template:
+    metadata:
+      name: rtpengine
+      labels:
+        component: rtpengine
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: external
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 2700
+      serviceAccountName: manager
+      containers:
+        - name: rtpengine
+          image: ghcr.io/voxoco/rtpengine:latest
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 2000m
+            limits:
+              memory: 3Gi
+              cpu: 3000m
+          ports:
+            - name: metrics
+              containerPort: 22223
+            - name: control
+              containerPort: 22222
+          lifecycle:
+            preStop:
+              exec:
+                command: [ "sh", "/gracefulShutdown.sh" ]
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: CLOUD
+              value: gcp
+            - name: HOMER
+              value: 10.142.15.196:9060
+          volumeMounts:
+            - name: usr-modules
+              mountPath: /usr/lib/modules
+            - name: modules
+              mountPath: /lib/modules
+            - name: src
+              mountPath: /usr/src
+          securityContext:
+            runAsUser: 0
+            privileged: true
+            capabilities:
+              add: [ "NET_ADMIN" ]
+        - name: rtpengine-sidecar
+          image: ghcr.io/voxoco/rtpengine-sidecar:latest
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+            limits:
+              memory: 100Mi
+              cpu: 20m
+          ports:
+            - containerPort: 42187
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: KAMSERVERID
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: serverId
+            - name: NATSURL
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: connectionString
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: PODNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+        - name: redis
+          image: redis:alpine
+          resources:
+            requests:
+              memory: 50Mi
+              cpu: 10m
+            limits:
+              memory: 100Mi
+              cpu: 20m
+          ports:
+            - containerPort: 6379
+      volumes:
+        - name: usr-modules
+          hostPath:
+            path: /usr/lib/modules
+        - name: modules
+          hostPath:
+            path: /lib/modules
+        - name: src
+          hostPath:
+            path: /usr/src
+      imagePullSecrets:
+        - name: regcred

@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omnia-api
+  namespace: production
+  labels:
+    component: omnia-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: omnia-api
+  template:
+    metadata:
+      labels:
+        component: omnia-api
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      volumes:
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
+      containers:
+        - name: omnia-api
+          image: ghcr.io/voxoco/omnia-api:latest
+          resources:
+            requests:
+              memory: 300Mi
+              cpu: 200m
+            limits:
+              memory: 600Mi
+              cpu: 800m
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: NATSURL
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: connectionString
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: GCLOUD_MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: gcloud-mysql-url
+                  key: connectionString
+            - name: AUTHSECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-auth-secret
+                  key: authSecret
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+            - name: PORT
+              value: "3030"
+            - name: SOCKETPORT
+              value: "3031"
+            - name: NODE_ENV
+              value: "production"
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+      imagePullSecrets:
+        - name: regcred

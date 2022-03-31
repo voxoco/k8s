@@ -1,0 +1,7 @@
+resources:
+  - ../../base/jobs
+namespace: staging
+images:
+  - name: ghcr.io/voxoco/jobs
+    newName: ghcr.io/voxoco/jobs
+    newTag: dev

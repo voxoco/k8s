@@ -1,0 +1,23 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: webrtc-kamailio
+  namespace: production
+spec:
+  timeoutSec: 1800
+  connectionDraining:
+    drainingTimeoutSec: 1
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: socket-api
+  namespace: production
+spec:
+  healthCheck:
+    port: 3030
+    type: HTTP
+    requestPath: /
+  timeoutSec: 1800
+  connectionDraining:
+    drainingTimeoutSec: 2

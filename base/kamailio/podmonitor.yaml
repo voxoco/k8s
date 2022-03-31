@@ -1,0 +1,14 @@
+apiVersion: monitoring.gke.io/v1alpha1
+kind: PodMonitor
+metadata:
+  name: kamailio
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      component: kamailio
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 1m

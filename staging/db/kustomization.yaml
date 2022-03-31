@@ -1,0 +1,22 @@
+resources:
+  - ../../base/db
+replicas:
+  - name: db
+    count: 3
+namespace: staging
+images:
+  - name: ghcr.io/voxoco/innodb-cluster
+    newName: ghcr.io/voxoco/innodb-cluster
+    newTag: dev
+patchesJson6902:
+- target:
+    group: "apps"
+    version: v1 # apiVersion
+    kind: StatefulSet
+    name: db
+  patch: |-
+    - op: replace
+      path: "/spec/template/spec/containers/1/env/7"
+      value:
+        name: S3_DIRECTORY
+        value: dev-innodb-cluster

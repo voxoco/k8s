@@ -1,0 +1,5 @@
+resources:
+  - mcs.yaml
+  - mci.yaml
+  - frontendconfig.yaml
+  - backendconfig.yaml

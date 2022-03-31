@@ -1,0 +1,10 @@
+resources:
+  - ../../base/rtpengine
+namespace: staging
+images:
+  - name: ghcr.io/voxoco/rtpengine
+    newName: ghcr.io/voxoco/rtpengine
+    newTag: dev
+  - name: ghcr.io/voxoco/rtpengine-sidecar
+    newName: ghcr.io/voxoco/rtpengine-sidecar
+    newTag: dev

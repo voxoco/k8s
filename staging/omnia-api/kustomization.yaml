@@ -1,0 +1,7 @@
+resources:
+  - ../../base/omnia-api
+namespace: staging
+images:
+  - name: ghcr.io/voxoco/omnia-api
+    newName: ghcr.io/voxoco/omnia-api
+    newTag: dev

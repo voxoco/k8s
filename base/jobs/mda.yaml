@@ -1,0 +1,33 @@
+apiVersion: autoscaling.gke.io/v1beta1
+kind: MultidimPodAutoscaler
+metadata:
+  name: jobs
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: jobs
+  goals:
+    metrics:
+      - type: Resource
+        resource:
+          # Define the target CPU utilization request here
+          name: cpu
+          target:
+            type: Utilization
+            averageUtilization: 90
+  constraints:
+    global:
+      minReplicas: 1
+      maxReplicas: 5
+    containerControlledResources: [ memory ]
+    container:
+      - name: '*'
+        # Define boundaries for the memory request here
+        requests:
+          minAllowed:
+            memory: 300Mi
+          maxAllowed:
+            memory: 600Mi
+  policy:
+    updateMode: Auto

@@ -1,0 +1,13 @@
+resources:
+  - ../../base/asterisk
+namespace: staging
+images:
+  - name: ghcr.io/voxoco/asterisk
+    newName: ghcr.io/voxoco/asterisk
+    newTag: dev
+  - name: ghcr.io/voxoco/asterisk-sidecar
+    newName: ghcr.io/voxoco/asterisk-sidecar
+    newTag: dev
+  - name: ghcr.io/voxoco/presence
+    newName: ghcr.io/voxoco/presence
+    newTag: dev

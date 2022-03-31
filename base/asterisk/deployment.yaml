@@ -1,0 +1,178 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ast
+  namespace: production
+  labels:
+    component: asterisk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: asterisk
+  template:
+    metadata:
+      labels:
+        component: asterisk
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      terminationGracePeriodSeconds: 2700
+      volumes:
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
+        - name: astdb
+          emptyDir:
+            medium: Memory
+            sizeLimit: "1Gi"
+        - name: pjsip
+          emptyDir:
+            medium: Memory
+            sizeLimit: "1Gi"
+        - name: sounds
+          emptyDir: {}
+        - name: spool
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+      initContainers:
+        - name: init
+          image: ghcr.io/voxoco/asterisk:latest
+          command: ["bash", "-c", "mkdir -p /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/voicemail && curl -L https://miscdts.s3.amazonaws.com/pbx-install/voxo-sounds-sln.tar.gz | tar zx -C /var/lib/asterisk/sounds --strip-components 1 && cp -r /sounds/ /var/lib/asterisk/sounds"]
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/asterisk
+            - name: sounds
+              mountPath: /var/lib/asterisk/sounds
+            - name: spool
+              mountPath: /var/spool/asterisk
+            - name: pjsip
+              mountPath: /etc/asterisk/pjsip.d
+      containers:
+        - name: asterisk-sidecar
+          image: ghcr.io/voxoco/asterisk-sidecar:latest
+          resources:
+            requests:
+              memory: 300Mi
+              cpu: 300m
+            limits:
+              memory: 400Mi
+              cpu: 400m
+          ports:
+            - containerPort: 4377
+            - containerPort: 4573
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: KAMHOST
+              value: kamailio-dmq
+            - name: KAMSERVERID
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: serverId
+            - name: NATSURL
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: connectionString
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: GCLOUD_MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: gcloud-mysql-url
+                  key: connectionString
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/asterisk
+            - name: sounds
+              mountPath: /var/lib/asterisk/sounds
+            - name: spool
+              mountPath: /var/spool/asterisk
+            - name: tmp
+              mountPath: /tmp
+            - name: google-service-account
+              mountPath: /var/secrets/google
+            - name: pjsip
+              mountPath: /etc/asterisk/pjsip.d
+        - name: presence
+          image: ghcr.io/voxoco/presence:latest
+          resources:
+            requests:
+              memory: 200Mi
+              cpu: 200m
+            limits:
+              memory: 200Mi
+              cpu: 400m
+          ports:
+            - name: http
+              protocol: TCP
+              containerPort: 9102
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: NATSURL
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: connectionString
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: KAMAILIO_SRV
+              value: kamailio
+        - name: asterisk
+          image: ghcr.io/voxoco/asterisk:latest
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1000m
+            limits:
+              memory: 2Gi
+              cpu: 4000m
+          ports:
+            - containerPort: 5080
+          lifecycle:
+            preStop:
+              exec:
+                command: [ "/var/lib/asterisk/gracefulShutdown.sh" ]
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+          volumeMounts:
+            - name: astdb
+              mountPath: /var/lib/asterisk/astdb
+            - name: logs
+              mountPath: /var/log/asterisk
+            - name: sounds
+              mountPath: /var/lib/asterisk/sounds
+            - name: spool
+              mountPath: /var/spool/asterisk
+            - name: tmp
+              mountPath: /tmp
+            - name: pjsip
+              mountPath: /etc/asterisk/pjsip.d
+      imagePullSecrets:
+        - name: regcred

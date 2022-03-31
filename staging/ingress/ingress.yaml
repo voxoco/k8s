@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kamailio-ingress
+  namespace: staging
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"8080":"webrtc-kamailio"}}'
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  selector:
+    component: kamailio
+  ports:
+    - name: webrtc
+      protocol: TCP
+      port: 8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: omnia-api-ingress
+  namespace: staging
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"3031":"socket-api"}}'
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  selector:
+    component: omnia-api
+  ports:
+    - name: rest
+      protocol: TCP
+      port: 3030
+    - name: socket
+      protocol: TCP
+      port: 3031
+
+---
+
+apiVersion: networking.gke.io/v1beta1
+kind: ManagedCertificate
+metadata:
+  name: dev-api-voxo-co
+  namespace: staging
+spec:
+  domains:
+    - dev-api.voxo.co
+
+---
+
+apiVersion: networking.gke.io/v1beta1
+kind: ManagedCertificate
+metadata:
+  name: dev-kube-api-voxo-co
+  namespace: staging
+spec:
+  domains:
+    - dev-kube-api.voxo.co
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: staging-http-ingress
+  namespace: staging
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: dev-global-http
+    networking.gke.io/managed-certificates: "dev-kube-api-voxo-co, dev-api-voxo-co"
+    networking.gke.io/v1beta1.FrontendConfig: frontend-redirect
+spec:
+  defaultBackend:
+    service:
+      name: omnia-api-ingress
+      port:
+        number: 3030
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: omnia-api-ingress
+            port:
+              number: 3030
+      - path: /socket.io/
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: omnia-api-ingress
+            port:
+              number: 3031
+      - path: /webrtc/
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: kamailio-ingress
+            port:
+              number: 8080

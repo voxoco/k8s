@@ -1,0 +1,4 @@
+resources:
+  - daemonset.yaml
+  - podmonitor.yaml
+  - service.yaml

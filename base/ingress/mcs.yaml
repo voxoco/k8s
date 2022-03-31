@@ -1,0 +1,38 @@
+apiVersion: networking.gke.io/v1
+kind: MultiClusterService
+metadata:
+  name: kamailio-mcs
+  namespace: production
+  labels:
+    component: kamailio
+  annotations:
+    beta.cloud.google.com/backend-config: '{"ports": {"8080":"webrtc-kamailio"}}'
+spec:
+  template:
+    spec:
+      selector:
+        component: kamailio
+      ports:
+        - name: webrtc
+          protocol: TCP
+          port: 8080
+---
+apiVersion: networking.gke.io/v1
+kind: MultiClusterService
+metadata:
+  name: omnia-api-mcs
+  namespace: production
+  annotations:
+    beta.cloud.google.com/backend-config: '{"ports": {"3031":"socket-api"}}'
+spec:
+  template:
+    spec:
+      selector:
+        component: omnia-api
+      ports:
+        - name: rest
+          protocol: TCP
+          port: 3030
+        - name: socket
+          protocol: TCP
+          port: 3031

@@ -1,0 +1,93 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+  labels:
+    k8s-app: kube-dns
+  name: kube-dns-bbc
+  namespace: kube-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      k8s-app: kube-dns
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+  labels:
+    k8s-app: kube-dns-autoscaler
+  name: kube-dns-aus
+  namespace: kube-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      k8s-app: kube-dns-autoscaler
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+  labels:
+    io.cilium/app: operator
+  name: kube-anet-opp
+  namespace: kube-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      io.cilium/app: operator
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+  labels:
+    k8s-app: event-exporter
+  name: kube-event-exp
+  namespace: kube-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      k8s-app: event-exporter
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+  labels:
+    k8s-app: glbc
+  name: kube-glbc-e
+  namespace: kube-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      k8s-app: glbc
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+  labels:
+    k8s-app: metrics-server
+  name: kube-met-srv
+  namespace: kube-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      k8s-app: metrics-server

@@ -1,0 +1,5 @@
+resources:
+  - ./backendconfig.yaml
+  - ./frontendconfig.yaml
+  - ./ingress.yaml
+namespace: staging

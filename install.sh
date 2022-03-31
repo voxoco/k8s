@@ -33,6 +33,7 @@ done
 
 # Globals
 CONFIG_REGION=""
+NAMESPACE=production
 
 if [ -z "$PROJECT_ID" ]; then
   echo "No project id specified"
@@ -106,8 +107,8 @@ for REGION in ${REGIONS}; do
   # Remove any kubeconfig clusters by that cluster name
   kubectl config delete-context $REGION
 
-  echo "Sleeping 10 seconds..."
-  sleep 10
+  echo "Sleeping 5 seconds..."
+  sleep 5
 
   # Create cluster
   gcloud beta container --project "$PROJECT_ID" clusters create "$REGION" --zone "$ZONE" --no-enable-basic-auth --cluster-version "1.21" --release-channel "None" --machine-type "c2-standard-4" --image-type "COS_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --max-pods-per-node "110" --num-nodes "1"  --enable-ip-alias --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM,WORKLOAD --network "projects/$PROJECT_ID/global/networks/default" --subnetwork "projects/$PROJECT_ID/regions/$REGION/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --enable-autoscaling --autoscaling-profile optimize-utilization --min-nodes "1" --max-nodes "4" --enable-dataplane-v2 --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --workload-pool "$PROJECT_ID.svc.id.goog" --enable-vertical-pod-autoscaling --enable-shielded-nodes --node-locations "$ZONE" --cluster-dns clouddns --cluster-dns-scope vpc --cluster-dns-domain $REGION
@@ -120,44 +121,44 @@ for REGION in ${REGIONS}; do
   gcloud projects add-iam-policy-binding $PROJECT_ID --member "serviceAccount:$PROJECT_ID.svc.id.goog[gke-mcs/gke-mcs-importer]" --role "roles/compute.networkViewer"
   gcloud container hub multi-cluster-services describe
 
-  echo "Sleeping 10 seconds..."
-  sleep 10
+  echo "Sleeping 5 seconds..."
+  sleep 5
 
   # Get cluster context and rename it
   gcloud container clusters get-credentials $REGION --zone=$ZONE
   kubectl config rename-context gke_"$PROJECT_ID"_"$ZONE"_"$REGION" $REGION
 
   # deploy pre-reqs (order is important)
-  kubectl apply -f manifests/namespace.yaml
-  kubectl apply -f manifests/rbac.yaml
-  kubectl apply -f secrets/secrets.yaml
+  kubectl apply -f base/namespace
+  kubectl apply -f base/rbac
+  ./secrets.sh $NAMESPACE
+  kubectl apply -f base/pdb.yaml
 
   if [ "$FRESH_INSTALL" == "yes" ]; then
 
-    FAILSERVER_ID=0
-    FAILSERVER_ID2=0
-    # Loop through clusters to get the subnet (to be used in the cluster-details ConfigMap
-    for REGIONNAME in ${REGIONS}; do
-      SUBNET=$(gcloud compute networks subnets describe default --region=$REGIONNAME | grep "gatewayAddress" | awk -F '.' '{print $2}')
-      echo "Subnet for $REGIONNAME, ID: $INC = $SUBNET"
+    # Get the subnet of the current region (which will be unique)
+    SUBNET=$(gcloud compute networks subnets describe default --region=$REGION | grep "gatewayAddress" | awk -F '.' '{print $2}')
+    SERVER_ID=\"$SUBNET\"
 
-      if [ "$REGIONNAME" == "$REGION" ]; then
-        echo "Subnet for myself is $SUBNET"
-        SERVER_ID=$SUBNET
-      else
-        if [ $FAILSERVER_ID == 0 ]; then
-          FAILSERVER_ID=$SUBNET
-        else
-          FAILSERVER_ID2=$SUBNET
-        fi
+    # Get any other region besides myself (for kamailio dmq)
+    for DMQ_REGION in ${REGIONS}; do
+      if [ "$DMQ_REGION" != "$REGION" ]; then
+        DMQ_HOST=$DMQ_REGION
+        break
       fi
-
     done
 
-    # INT to String variables
-    SERVER_ID=\"$SERVER_ID\"
-    FAILSERVER_ID=\"$FAILSERVER_ID\"
-    FAILSERVER_ID2=\"$FAILSERVER_ID2\"
+    # Build NATS gateways
+    GATEWAYS='['
+    for GATEWAY in ${REGIONS}; do
+      OBJ="{name: \"$GATEWAY\", url: \"nats://nats-0.nats.$NAMESPACE.svc.$GATEWAY:7522\"}"
+      if [ ${#GATEWAYS} -le 2 ]; then
+        GATEWAYS="$GATEWAYS$OBJ"
+      else
+        GATEWAYS="$GATEWAYS,$OBJ"
+      fi
+    done
+    GATEWAYS="$GATEWAYS]"
 
     # Create cluster-details ConfigMap
 cat <<EOF | kubectl apply -f -
@@ -165,30 +166,29 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cluster-details
-  namespace: voip
+  namespace: $NAMESPACE
 data:
   projectId: $PROJECT_ID
   serverId: $SERVER_ID
-  failServerId: $FAILSERVER_ID
-  failServerId2: $FAILSERVER_ID2
   clusterName: $REGION
   zone: $ZONE
+  regions: $REGIONS
+  kamailioDmq: kamailio.$NAMESPACE.svc.$DMQ_HOST:5061
+  natsGateways: $GATEWAYS
 EOF
 
   fi
-
-  echo "Sleeping 10 seconds..."
-  sleep 10
 
   # Set kubeconfig
   kubectl config use $REGION
   echo "kubeconfig set to $REGION"
 
   # Deploy NATS (because everything needs it)
-  kubectl apply -f manifests/nats.yaml
-
-  echo "Sleeping 2 minutes..."
-  sleep 120
+  kubectl apply -f base/nats
+  sleep 2
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-0 --timeout=300s
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-1 --timeout=300s
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-2 --timeout=300s
 
   # Check if config cluster
   if [ "$CONFIG_REGION" == "$REGION" ] && [ "$FRESH_INSTALL" == "yes" ]; then
@@ -198,35 +198,35 @@ EOF
     sleep 10
 
     # Deploy MultiClusterService, MultiClusterIngress
-    kubectl apply -f manifests/config-cluster.yaml
+    kubectl apply -f base/ingress
   fi
 
-  echo "Sleeping 20 seconds..."
-  sleep 20
-
-  # Deploy innodb-cluster
-  kubectl apply -f manifests/innodb-cluster.yaml
-
-  # Since the db relies on MCS and GCP takes 5 minutes to sync Service Exports between the fleet of clusters we need to wait
-  echo "Sleeping 3 minutes to give db time to come up"
-  sleep 180
+  # Deploy db
+  kubectl apply -f base/db
+  sleep 2
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=db-0 --timeout=300s
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=db-1 --timeout=300s
 
   # Deploy all other services (order is important)
-  kubectl apply -f manifests/kube-client.yaml
+  kubectl apply -f base/kube-client
+  sleep 2
+  kubectl -n $NAMESPACE wait --for=condition=available deploy/kube-client --timeout=300s
 
-  echo "Sleeping 2 minutes..."
-  sleep 120
+  kubectl apply -f base/jobs
+  sleep 2
+  kubectl -n $NAMESPACE wait --for=condition=available deploy/jobs --timeout=300s
 
-  kubectl apply -f manifests/jobs.yaml
+  kubectl apply -f base/omnia-api
 
-  echo "Sleeping 1 minute to make sure jobs and kube-client have settled (since their a dependency for rtpengine/kamailio)"
-  sleep 60
+  kubectl apply -f base/rtpengine
+  sleep 10
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l component=rtpengine --timeout=300s
 
-  kubectl apply -f manifests/omnia-api.yaml
-  kubectl apply -f manifests/rtpengine.yaml
-  kubectl apply -f manifests/asterisk.yaml
-  kubectl apply -f manifests/kamailio.yaml
-  kubectl apply -f manifests/prometheus.yaml
+  kubectl apply -f base/asterisk
+  sleep 2
+  kubectl -n $NAMESPACE wait --for=condition=available deploy/ast --timeout=300s
+
+  kubectl apply -f base/kamailio
 
   echo "Cluster $REGION complete"
 

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobs
+  namespace: production
+  labels:
+    component: jobs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: jobs
+  template:
+    metadata:
+      labels:
+        component: jobs
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      volumes:
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
+      containers:
+        - name: jobs
+          image: ghcr.io/voxoco/jobs:latest
+          resources:
+            requests:
+              memory: 200Mi
+              cpu: 200m
+            limits:
+              memory: 600Mi
+              cpu: 800m
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+            - name: NATSURL
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: connectionString
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: GCLOUD_MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: gcloud-mysql-url
+                  key: connectionString
+            - name: PODNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+      imagePullSecrets:
+        - name: regcred

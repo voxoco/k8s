@@ -1,0 +1,14 @@
+apiVersion: monitoring.gke.io/v1alpha1
+kind: PodMonitor
+metadata:
+  name: rtpengine
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      component: rtpengine
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      scheme: http
+      interval: 1m

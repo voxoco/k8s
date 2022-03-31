@@ -32,7 +32,7 @@ This takes care of the install process when starting from scratch and/or when ad
 
 `manifests/`
 ---------
-Contains all services to be deployed. Each region/cluster needs it's own directory like `manifests/us-east1` as it contains information for that specific cluster. *Naming the directory the region/cluster is important*
+Contains all entities to be deployed.
 
 `manifests/config-cluster.yaml`
 ---------
@@ -41,7 +41,7 @@ This only gets deployed to the [Config Cluster](https://cloud.google.com/kuberne
 
 `secrets/secrets.yaml`
 ---------
-There are `secrets` referenced in the manifests. Be sure to create the necessary secrets yaml in the secrets dir before running. Searching through the manifests will help determine the keys/values required.
+There are `secrets` referenced in the manifests. Be sure to create the necessary `secrets.yaml` in the secrets dir before running. Searching through the manifests will help determine the keys/values required.
 
 ## Install
 
