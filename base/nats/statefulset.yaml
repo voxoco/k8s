@@ -47,6 +47,7 @@ spec:
           ports:
             - containerPort: 7777
               name: metrics
+          imagePullPolicy: Always
         - name: nats
           image: nats:alpine
           resources:
@@ -127,3 +128,4 @@ spec:
                 # the NATS Server to gracefully terminate the client connections.
                 #
                 command: ["/bin/sh", "-c", "/nats-server -sl=ldm=/var/run/nats/nats.pid && /bin/sleep 60"]
+          imagePullPolicy: Always

@@ -62,6 +62,7 @@ spec:
               containerPort: 42184
             - name: metrics
               containerPort: 9105
+          imagePullPolicy: Always
         - name: heplify
           image: sipcapture/heplify:latest
           resources:
@@ -92,6 +93,7 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: clusterName
+          imagePullPolicy: Always
         - name: kamailio
           image: ghcr.io/voxoco/kamailio:latest
           resources:
@@ -162,5 +164,6 @@ spec:
             privileged: true
             capabilities:
               add: [ "NET_ADMIN" ]
+          imagePullPolicy: Always
       imagePullSecrets:
         - name: regcred

@@ -59,6 +59,7 @@ spec:
             privileged: true
             capabilities:
               add: [ "NET_ADMIN" ]
+          imagePullPolicy: Always
         - name: rtpengine-sidecar
           image: ghcr.io/voxoco/rtpengine-sidecar:latest
           resources:
@@ -96,6 +97,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+          imagePullPolicy: Always
         - name: redis
           image: redis:alpine
           resources:

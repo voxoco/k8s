@@ -110,6 +110,7 @@ spec:
               mountPath: /var/secrets/google
             - name: pjsip
               mountPath: /etc/asterisk/pjsip.d
+          imagePullPolicy: Always
         - name: presence
           image: ghcr.io/voxoco/presence:latest
           resources:
@@ -138,6 +139,7 @@ spec:
                   key: connectionString
             - name: KAMAILIO_SRV
               value: kamailio
+          imagePullPolicy: Always
         - name: asterisk
           image: ghcr.io/voxoco/asterisk:latest
           resources:
@@ -174,5 +176,6 @@ spec:
               mountPath: /tmp
             - name: pjsip
               mountPath: /etc/asterisk/pjsip.d
+          imagePullPolicy: Always
       imagePullSecrets:
         - name: regcred

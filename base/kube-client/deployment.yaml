@@ -58,6 +58,7 @@ spec:
                   key: serverId
             - name: TZ
               value: America/Chicago
+          imagePullPolicy: Always
       serviceAccountName: manager
       imagePullSecrets:
         - name: regcred
