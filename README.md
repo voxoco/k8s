@@ -30,20 +30,23 @@ This takes care of the install process when starting from scratch and/or when ad
 * Enables the necessary API's in GCP for [MCS](https://cloud.google.com/kubernetes-engine/docs/how-to/multi-cluster-services), [MCI](https://cloud.google.com/kubernetes-engine/docs/concepts/multi-cluster-ingress), [Hub memberships](https://cloud.google.com/anthos/multicluster-management/connect/registering-a-cluster?cloudshell=true)
 * Handling of [Config cluster setup](https://cloud.google.com/kubernetes-engine/docs/concepts/multi-cluster-ingress#config_cluster_design) setup
 
-`manifests/`
+`base/`
 ---------
-Contains all entities to be deployed.
+Contains all production manifests to be deployed.
 
-`manifests/config-cluster.yaml`
+`base/ingress`
 ---------
 This only gets deployed to the [Config Cluster](https://cloud.google.com/kubernetes-engine/docs/concepts/multi-cluster-ingress#config_cluster_design) which is determined by the first region/cluster being deployed using the `fresh install`.
 
-
-`secrets/secrets.yaml`
+`staging/`
 ---------
-There are `secrets` referenced in the manifests. Be sure to create the necessary `secrets.yaml` in the secrets dir before running. Searching through the manifests will help determine the keys/values required.
+Contains the staging environment (modifed by [kustomize](https://kustomize.io/)) to be deployed as a single cluster. See `staging-install.sh` for details.
 
-## Install
+`secrets.sh`
+---------
+There are `secrets` referenced in the manifests. Be sure to create the necessary secrets using Google Cloud Secret Manager before running.
+
+## Production install
 
 Run `./install.sh` with options below
 ```
@@ -60,6 +63,11 @@ Custom regions (fresh):  ./install.sh --project-id 'my-project' --regions 'us-we
 Add a region to cluster: ./install.sh --project-id 'my-project' --regions 'us-west1'
 ```
 
+## Staging install
 
+Run `staging-install.sh` with the options below
 
+Usage: ./install.sh [option...]" >&2
 
+-p, --project-id         Your google cloud project ID (required)"
+-r, --region            Specify the region (optional - defaults to us-west2)
