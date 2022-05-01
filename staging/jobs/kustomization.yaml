@@ -5,3 +5,18 @@ images:
   - name: ghcr.io/voxoco/jobs
     newName: ghcr.io/voxoco/jobs
     newTag: dev
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: jobs
+    namespace: production
+  spec:
+    template:
+      spec:
+        containers:
+          - name: jobs
+            resources:
+              requests:
+                cpu: 50m

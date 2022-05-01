@@ -26,11 +26,7 @@ spec:
           image: ghcr.io/voxoco/jobs:latest
           resources:
             requests:
-              memory: 200Mi
               cpu: 200m
-            limits:
-              memory: 600Mi
-              cpu: 800m
           volumeMounts:
             - name: google-service-account
               mountPath: /var/secrets/google

@@ -1,4 +1,3 @@
 resources:
   - deployment.yaml
-  - mpa.yaml
-  - podmonitor.yaml
+  - hpa.yaml

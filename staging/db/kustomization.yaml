@@ -1,22 +1,32 @@
 resources:
   - ../../base/db
-replicas:
-  - name: db
-    count: 3
 namespace: staging
 images:
   - name: ghcr.io/voxoco/innodb-cluster
     newName: ghcr.io/voxoco/innodb-cluster
     newTag: dev
-patchesJson6902:
-- target:
-    group: "apps"
-    version: v1 # apiVersion
-    kind: StatefulSet
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: StatefulSet
+  metadata:
     name: db
-  patch: |-
-    - op: replace
-      path: "/spec/template/spec/containers/1/env/7"
-      value:
-        name: S3_DIRECTORY
-        value: dev-innodb-cluster
+    namespace: production
+  spec:
+    replicas: 3
+    template:
+      spec:
+        initContainers:
+          - name: init
+            env:
+              - name: INNODB_BUFFER_SIZE
+                value: 2G
+        containers:
+          - name: mysql
+            resources:
+              requests:
+                cpu: 100m
+          - name: sidecar
+            env:
+              - name: S3_DIRECTORY
+                value: dev-innodb-cluster

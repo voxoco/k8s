@@ -8,3 +8,18 @@ images:
   - name: ghcr.io/voxoco/rtpengine-sidecar
     newName: ghcr.io/voxoco/rtpengine-sidecar
     newTag: dev
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: DaemonSet
+  metadata:
+    name: rtpengine
+    namespace: production
+  spec:
+    template:
+      spec:
+        containers:
+          - name: rtpengine
+            resources:
+              requests:
+                cpu: 200m

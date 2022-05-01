@@ -26,11 +26,7 @@ spec:
           image: ghcr.io/voxoco/kamailio-sidecar:latest
           resources:
             requests:
-              memory: 100Mi
               cpu: 50m
-            limits:
-              memory: 200Mi
-              cpu: 100m
           env:
             - name: TZ
               value: America/Chicago
@@ -67,11 +63,7 @@ spec:
           image: sipcapture/heplify:latest
           resources:
             requests:
-              memory: 500Mi
               cpu: 200m
-            limits:
-              memory: 1Gi
-              cpu: 400m
           command:
             - "./heplify"
             - "-hn"
@@ -98,11 +90,7 @@ spec:
           image: ghcr.io/voxoco/kamailio:latest
           resources:
             requests:
-              memory: 5Gi
               cpu: 900m
-            limits:
-              memory: 6Gi
-              cpu: 3000m
           ports:
             - name: sip1
               protocol: UDP

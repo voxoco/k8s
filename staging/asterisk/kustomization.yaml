@@ -26,34 +26,22 @@ patchesStrategicMerge:
           - name: asterisk-sidecar
             resources:
               requests:
-                memory: 100Mi
                 cpu: 50m
-              limits:
-                memory: 200Mi
-                cpu: 100m
           - name: presence
             resources:
               requests:
-                memory: 100Mi
                 cpu: 50m
-              limits:
-                memory: 200Mi
-                cpu: 100m
           - name: asterisk
             resources:
               requests:
-                memory: 100Mi
                 cpu: 100m
-              limits:
-                memory: 200Mi
-                cpu: 200m
 patchesJson6902:
 - target:
-    group: autoscaling.gke.io
-    version: v1beta1
-    kind: MultidimPodAutoscaler
+    group: autoscaling
+    version: v1
+    kind: HorizontalPodAutoscaler
     name: asterisk
   patch: |
     - op: replace
-      path: /spec/constraints/global/minReplicas
+      path: /spec/minReplicas
       value: 2

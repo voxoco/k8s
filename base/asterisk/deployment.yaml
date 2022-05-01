@@ -32,7 +32,7 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: "1Gi"
-        - name: sounds
+        - name: pbx
           emptyDir: {}
         - name: spool
           emptyDir: {}
@@ -43,12 +43,10 @@ spec:
       initContainers:
         - name: init
           image: ghcr.io/voxoco/asterisk:latest
-          command: ["bash", "-c", "mkdir -p /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/voicemail && curl -L https://miscdts.s3.amazonaws.com/pbx-install/voxo-sounds-sln.tar.gz | tar zx -C /var/lib/asterisk/sounds --strip-components 1 && cp -r /sounds/ /var/lib/asterisk/sounds"]
+          command: ["bash", "-c", "mkdir -p /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/voicemail && touch /etc/asterisk/pjsip.d/test.conf"]
           volumeMounts:
             - name: logs
               mountPath: /var/log/asterisk
-            - name: sounds
-              mountPath: /var/lib/asterisk/sounds
             - name: spool
               mountPath: /var/spool/asterisk
             - name: pjsip
@@ -58,11 +56,7 @@ spec:
           image: ghcr.io/voxoco/asterisk-sidecar:latest
           resources:
             requests:
-              memory: 300Mi
               cpu: 300m
-            limits:
-              memory: 400Mi
-              cpu: 400m
           ports:
             - containerPort: 4377
             - containerPort: 4573
@@ -100,8 +94,8 @@ spec:
           volumeMounts:
             - name: logs
               mountPath: /var/log/asterisk
-            - name: sounds
-              mountPath: /var/lib/asterisk/sounds
+            - name: pbx
+              mountPath: /var/lib/asterisk/sounds/pbx
             - name: spool
               mountPath: /var/spool/asterisk
             - name: tmp
@@ -115,11 +109,7 @@ spec:
           image: ghcr.io/voxoco/presence:latest
           resources:
             requests:
-              memory: 200Mi
               cpu: 200m
-            limits:
-              memory: 200Mi
-              cpu: 400m
           ports:
             - name: http
               protocol: TCP
@@ -144,11 +134,7 @@ spec:
           image: ghcr.io/voxoco/asterisk:latest
           resources:
             requests:
-              memory: 1Gi
               cpu: 1000m
-            limits:
-              memory: 2Gi
-              cpu: 4000m
           ports:
             - containerPort: 5080
           lifecycle:
@@ -163,13 +149,17 @@ spec:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           volumeMounts:
             - name: astdb
               mountPath: /var/lib/asterisk/astdb
             - name: logs
               mountPath: /var/log/asterisk
-            - name: sounds
-              mountPath: /var/lib/asterisk/sounds
+            - name: pbx
+              mountPath: /var/lib/asterisk/sounds/pbx
             - name: spool
               mountPath: /var/spool/asterisk
             - name: tmp

@@ -104,4 +104,15 @@ metadata:
 type: Opaque
 stringData:
   key: $(gcloud secrets versions access latest --secret=apiban-key)
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prometheus-password
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=prometheus-password)
 EOF

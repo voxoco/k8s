@@ -8,3 +8,23 @@ images:
   - name: ghcr.io/voxoco/kamailio-sidecar
     newName: ghcr.io/voxoco/kamailio-sidecar
     newTag: dev
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: DaemonSet
+  metadata:
+    name: kamailio
+    namespace: production
+  spec:
+    template:
+      spec:
+        containers:
+          - name: heplify
+            resources:
+              requests:
+                memory: 100Mi
+                cpu: 50m
+          - name: kamailio
+            resources:
+              requests:
+                cpu: 50m

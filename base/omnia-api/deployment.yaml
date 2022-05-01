@@ -26,11 +26,7 @@ spec:
           image: ghcr.io/voxoco/omnia-api:latest
           resources:
             requests:
-              memory: 300Mi
               cpu: 200m
-            limits:
-              memory: 600Mi
-              cpu: 800m
           env:
             - name: TZ
               value: America/Chicago

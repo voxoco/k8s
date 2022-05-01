@@ -1,5 +1,4 @@
 resources:
   - statefulset.yaml
   - service.yaml
-  - podmonitor.yaml
   - configmap.yaml

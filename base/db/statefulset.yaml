@@ -48,6 +48,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: INNODB_BUFFER_SIZE
+              value: 3G
           volumeMounts:
             - name: conf
               mountPath: /mnt/conf.d
@@ -59,9 +61,6 @@ spec:
             requests:
               memory: 25Mi
               cpu: 10m
-            limits:
-              memory: 50Mi
-              cpu: 20m
           env:
             - name: DATA_SOURCE_NAME
               value: mysqld-exporter:123456@(127.0.0.1:3306)/
@@ -79,11 +78,7 @@ spec:
           command: ["bash", "/sidecar.sh"]
           resources:
             requests:
-              memory: 25Mi
               cpu: 30m
-            limits:
-              memory: 50Mi
-              cpu: 50m
           env:
             - name: TZ
               value: America/Chicago
@@ -132,11 +127,7 @@ spec:
           image: ghcr.io/voxoco/innodb-cluster:latest
           resources:
             requests:
-              memory: 4Gi
               cpu: 1000m
-            limits:
-              memory: 7Gi
-              cpu: 3000m
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:

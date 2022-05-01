@@ -1,0 +1,24 @@
+resources:
+  - ../../base/monitor-agent
+patches:
+- target:
+    kind: Service
+    name: grafana-agent
+  patch: |-
+    - op: replace
+      path: /metadata/namespace
+      value: staging
+- target:
+    kind: Deployment
+    name: grafana-agent
+  patch: |-
+    - op: replace
+      path: /metadata/namespace
+      value: staging
+- target:
+    kind: ConfigMap
+    name: grafana-agent
+  patch: |-
+    - op: replace
+      path: /metadata/namespace
+      value: staging

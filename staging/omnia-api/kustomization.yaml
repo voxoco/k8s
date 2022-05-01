@@ -5,3 +5,18 @@ images:
   - name: ghcr.io/voxoco/omnia-api
     newName: ghcr.io/voxoco/omnia-api
     newTag: dev
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: omnia-api
+    namespace: production
+  spec:
+    template:
+      spec:
+        containers:
+          - name: omnia-api
+            resources:
+              requests:
+                cpu: 50m

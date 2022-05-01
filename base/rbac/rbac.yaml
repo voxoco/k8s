@@ -7,11 +7,13 @@ rules:
   - apiGroups: [""]
     resources:
       - nodes
+      - nodes/proxy
       - services
       - endpoints
       - pods
       - configmaps
       - secrets
+      - events
     verbs: ["get", "watch", "list", "create", "update", "patch", "delete"]
   - nonResourceURLs: ["/metrics"]
     verbs: ["get"]

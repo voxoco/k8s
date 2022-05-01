@@ -26,11 +26,7 @@ spec:
           image: ghcr.io/voxoco/rtpengine:latest
           resources:
             requests:
-              memory: 1Gi
               cpu: 2000m
-            limits:
-              memory: 3Gi
-              cpu: 3000m
           ports:
             - name: metrics
               containerPort: 22223
@@ -64,11 +60,7 @@ spec:
           image: ghcr.io/voxoco/rtpengine-sidecar:latest
           resources:
             requests:
-              memory: 50Mi
               cpu: 10m
-            limits:
-              memory: 100Mi
-              cpu: 20m
           ports:
             - containerPort: 42187
           env:
@@ -102,11 +94,7 @@ spec:
           image: redis:alpine
           resources:
             requests:
-              memory: 50Mi
               cpu: 10m
-            limits:
-              memory: 100Mi
-              cpu: 20m
           ports:
             - containerPort: 6379
       volumes:
