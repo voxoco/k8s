@@ -59,7 +59,6 @@ spec:
           image: prom/mysqld-exporter
           resources:
             requests:
-              memory: 25Mi
               cpu: 10m
           env:
             - name: DATA_SOURCE_NAME

@@ -28,6 +28,11 @@ spec:
             requests:
               cpu: 50m
           env:
+            - name: APIBANKEY
+              valueFrom:
+                secretKeyRef:
+                  name: apiban-key
+                  key: key
             - name: TZ
               value: America/Chicago
             - name: NATSURL
@@ -36,11 +41,6 @@ spec:
                   name: nats-url
                   key: connectionString
             - name: MYSQL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-url
-                  key: connectionString
-            - name: MYSQLKAM
               valueFrom:
                 secretKeyRef:
                   name: mysql-url
@@ -129,11 +129,6 @@ spec:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
-            - name: APIBANKEY
-              valueFrom:
-                secretKeyRef:
-                  name: apiban-key
-                  key: key
             - name: DMQHOST
               valueFrom:
                 configMapKeyRef:

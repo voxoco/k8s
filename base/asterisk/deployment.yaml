@@ -127,8 +127,6 @@ spec:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
-            - name: KAMAILIO_SRV
-              value: kamailio
           imagePullPolicy: Always
         - name: asterisk
           image: ghcr.io/voxoco/asterisk:latest
