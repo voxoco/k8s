@@ -16,7 +16,7 @@ spec:
         component: rtpengine
     spec:
       nodeSelector:
-        cloud.google.com/gke-nodepool: external
+        cloud.google.com/gke-nodepool: external-rtp
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       terminationGracePeriodSeconds: 2700

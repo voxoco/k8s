@@ -16,7 +16,7 @@ spec:
         component: kamailio
     spec:
       nodeSelector:
-        cloud.google.com/gke-nodepool: external
+        cloud.google.com/gke-nodepool: external-sip
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       terminationGracePeriodSeconds: 2
@@ -129,11 +129,12 @@ spec:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
-            - name: DMQHOST
+            - name: POD_NAMESPACE
               valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: kamailioDmq
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: DMQHOST
+              value: kamailio.$(POD_NAMESPACE).svc.us-west1:5061 kamailio.$(POD_NAMESPACE).svc.us-west2:5061 kamailio.$(POD_NAMESPACE).svc.us-west3:5061 kamailio.$(POD_NAMESPACE).svc.us-west4:5061 kamailio.$(POD_NAMESPACE).svc.us-central1:5061 kamailio.$(POD_NAMESPACE).svc.us-east1:5061 kamailio.$(POD_NAMESPACE).svc.us-east4:5061 kamailio.$(POD_NAMESPACE).svc.us-east5:5061 kamailio.$(POD_NAMESPACE).svc.us-south1:5061
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:

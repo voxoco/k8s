@@ -4,7 +4,7 @@ namespace: staging
 images:
   - name: ghcr.io/voxoco/kamailio
     newName: ghcr.io/voxoco/kamailio
-    newTag: kemi
+    newTag: dev
   - name: ghcr.io/voxoco/kamailio-sidecar
     newName: ghcr.io/voxoco/kamailio-sidecar
     newTag: dev

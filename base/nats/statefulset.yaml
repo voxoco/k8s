@@ -91,10 +91,20 @@ spec:
             - name: ADVERTISE
               value: $(POD_NAME).nats.$(POD_NAMESPACE).svc.$(NAME)
             - name: GATEWAYS
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: natsGateways
+              value: |
+                [
+                  { "name": "us-west1", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-west1:7522" },
+                  { "name": "us-west2", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-west2:7522" },
+                  { "name": "us-west3", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-west3:7522" },
+                  { "name": "us-west4", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-west4:7522" },
+                  { "name": "us-central1", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-central1:7522" },
+                  { "name": "us-east1", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-east1:7522" },
+                  { "name": "us-east4", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-east4:7522" },
+                  { "name": "us-east5", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-east5:7522" },
+                  { "name": "us-south1", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-south1:7522" }
+                ]
+            - name: JS_SERVER_NAME
+              value: $(NAME)-$(POD_NAME)
           volumeMounts:
             - name: config-volume
               mountPath: /etc/nats-config

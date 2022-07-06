@@ -7,6 +7,9 @@ data:
   nats.conf: |
     pid_file: "/var/run/nats/nats.pid"
     http: 8222
+    server_name: $JS_SERVER_NAME
+    
+    jetstream: enabled
 
     authorization {
       user: $USER,

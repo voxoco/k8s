@@ -114,10 +114,7 @@ spec:
                 fieldRef:
                   fieldPath: status.podIP
             - name: REGIONS
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: regions
+              value: us-west1 us-west2 us-west3 us-west4 us-central1 us-east1 us-east4 us-east5 us-south1
           volumeMounts:
             - name: data
               mountPath: /mnt/data/mysql
