@@ -1,11 +1,16 @@
 ## Multi-region Kubernetes VoIP deployment
 
-* :white_check_mark: Easy to deploy
-* :white_check_mark: Multi region
-* :white_check_mark: Globally distributed
-* :white_check_mark: Scalable
-* :white_check_mark: Single global ingress
-* :white_check_mark: Auto-clustering
+:white_check_mark: Easy to deploy
+
+:white_check_mark: Multi region
+
+:white_check_mark: Globally distributed
+
+:white_check_mark: Scalable
+
+:white_check_mark: Single global ingress
+
+:white_check_mark: Auto-clustering
 
 ## Overview
 
