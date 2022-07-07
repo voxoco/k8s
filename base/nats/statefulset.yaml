@@ -20,9 +20,11 @@ spec:
     spec:
       # Common volumes for the containers
       volumes:
-        - name: config-volume
+        - name: config-volume-ro
           configMap:
             name: nats-config
+        - name: config-volume-rw
+          emptyDir: {}
         - name: pid
           emptyDir: {}
 
@@ -30,6 +32,74 @@ spec:
       # to the server without restarting the pod.
       shareProcessNamespace: true
       terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: init
+          image: alpine:3.7
+          command:
+            - sh
+            - -c
+            - |
+              # We need to loop through the list of regions and try to ping each one.
+              # Then build a list of the regions that are reachable.
+              # Then write the list of reachable regions to the nats.conf file replacing "$GATEWAYS"
+              # Create dns list from the regions.
+              DNS_RECORDS=""
+              for REGION in $REGIONS; do
+                DNS_RECORDS="$DNS_RECORDS nats-0.nats.$POD_NAMESPACE.svc.$REGION"
+              done
+
+              # Try to ping each of the regions.
+              REACHABLE_REGIONS=""
+              for DNS_RECORD in $DNS_RECORDS; do
+                if ping -W 2 -c 1 $DNS_RECORD > /dev/null; then
+                  REACHABLE_REGIONS="$REACHABLE_REGIONS $DNS_RECORD"
+                fi
+              done
+
+              # Count the reachable regions.
+              REACHABLE_REGION_COUNT=$(echo $REACHABLE_REGIONS | wc -w)
+
+              echo "Reachable regions: $REACHABLE_REGIONS"
+              echo "Reachable region count: $REACHABLE_REGION_COUNT"
+
+              # Build array of nats gateways.
+              NATS_GATEWAYS=""
+              # If there are no reachable regions, then we'll use myself.
+              if [ $REACHABLE_REGION_COUNT -eq 0 ]; then
+                NATS_GATEWAYS="[{ \"name\": \"$NAME\", \"url\": \"nats\://nats-0.nats.$POD_NAMESPACE.svc.$NAME:7522\" }]"
+              else
+                NATS_GATEWAYS="["
+                for REACHABLE_REGION in $REACHABLE_REGIONS; do
+                  REGION=$(echo $REACHABLE_REGION | cut -d '.' -f5)
+                  NATS_GATEWAYS="$NATS_GATEWAYS { \"name\": \"$REGION\", \"url\": \"nats://nats-0.nats.$POD_NAMESPACE.svc.$REGION:7522\" },"
+                done
+                NATS_GATEWAYS="$NATS_GATEWAYS ]"
+              fi
+
+              echo "NATS gateways: $NATS_GATEWAYS"
+
+              # Copy the nats.conf file to the config-volume-rw volume.
+              cp /tmp/nats.conf /etc/nats-config/nats.conf
+
+              # Replace "$GATEWAYS" with the NATS gateways in the nats.conf file.
+              sed -i "s|\$GATEWAYS|$NATS_GATEWAYS|" /etc/nats-config/nats.conf
+          env:
+            - name: NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: REGIONS
+              value: us-west1 us-west2 us-west3 us-west4 us-central1 us-east1 us-east4 us-east5 us-south1
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: config-volume-ro
+              mountPath: /tmp
+            - name: config-volume-rw
+              mountPath: /etc/nats-config
       containers:
         - name: nats-exporter
           image: natsio/prometheus-nats-exporter:latest
@@ -90,23 +160,10 @@ spec:
                   fieldPath: metadata.namespace
             - name: ADVERTISE
               value: $(POD_NAME).nats.$(POD_NAMESPACE).svc.$(NAME)
-            - name: GATEWAYS
-              value: |
-                [
-                  { "name": "us-west1", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-west1:7522" },
-                  { "name": "us-west2", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-west2:7522" },
-                  { "name": "us-west3", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-west3:7522" },
-                  { "name": "us-west4", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-west4:7522" },
-                  { "name": "us-central1", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-central1:7522" },
-                  { "name": "us-east1", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-east1:7522" },
-                  { "name": "us-east4", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-east4:7522" },
-                  { "name": "us-east5", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-east5:7522" },
-                  { "name": "us-south1", "url": "nats://nats-0.nats.$(POD_NAMESPACE).svc.us-south1:7522" }
-                ]
             - name: JS_SERVER_NAME
               value: $(NAME)-$(POD_NAME)
           volumeMounts:
-            - name: config-volume
+            - name: config-volume-rw
               mountPath: /etc/nats-config
             - name: pid
               mountPath: /var/run/nats
