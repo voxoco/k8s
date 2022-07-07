@@ -134,7 +134,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: DMQHOST
-              value: kamailio.$(POD_NAMESPACE).svc.us-west1:5061 kamailio.$(POD_NAMESPACE).svc.us-west2:5061 kamailio.$(POD_NAMESPACE).svc.us-west3:5061 kamailio.$(POD_NAMESPACE).svc.us-west4:5061 kamailio.$(POD_NAMESPACE).svc.us-central1:5061 kamailio.$(POD_NAMESPACE).svc.us-east1:5061 kamailio.$(POD_NAMESPACE).svc.us-east4:5061 kamailio.$(POD_NAMESPACE).svc.us-east5:5061 kamailio.$(POD_NAMESPACE).svc.us-south1:5061
+              value: us-west1 us-west2 us-west3 us-west4 us-central1 us-east1 us-east4 us-east5 us-south1
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:
