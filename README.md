@@ -29,10 +29,10 @@ This project assumes you have the following installed/configured
 * kubectl
 * External IP in GCP (used for External HTTP(S) global LB)
 * External IP's in GCP (used for Kamailio/Rtpengine)
-* Secrets already created in [Secret Manager](https://console.cloud.google.com/security/secret-manager) (refer to `install.sh` for the naming convention)
+* Secrets already created in [Secret Manager](https://console.cloud.google.com/security/secret-manager) (refer to `up` for the naming convention)
 
 
-`install.sh` 
+`up` 
 ----------
 This takes care of the whole install process. Supported namespaces are `production`, and `staging`
 * Create any google managed certs provided via command line args
@@ -53,7 +53,7 @@ This takes care of the whole install process. Supported namespaces are `producti
 
 `base/`
 ---------
-Contains all production manifests to be deployed in a production environment. `./install.sh --namespace production`
+Contains all production manifests to be deployed in a production environment. `./up --namespace production`
 
 `base/ingress`
 ---------
@@ -61,21 +61,21 @@ This only gets deployed to the [Config Cluster](https://cloud.google.com/kuberne
 
 `staging/`
 ---------
-Contains the staging environment (modifed by [kustomize](https://kustomize.io/)) to be deployed as a single cluster. `./install.sh --namespace staging`
+Contains the staging environment (modifed by [kustomize](https://kustomize.io/)) to be deployed as a single cluster. `./up --namespace staging`
 
 ## Production or staging install
 
-Run `./install.sh` with options below
+Run `./up` with options below
 ```
-Usage: ./install.sh [options...]
+Usage: ./up [options...]
 
 -p, --project-id         Your google cloud project ID (optional - defaults to current project)
 -r, --region             Specify the region to deploy the cluster. (optional - default is us-east1)
--s, --ssl-domains        Specify the domains to enable for google-managed SSL (optional)
 -m, --machine-type       Specify the machine type (optional - default is c2-standard-4)
 -n, --namespace          Specify the namespace to deploy into (optional - default is production)
+-q, --quiet              Specify the quiet flag for non-interacive (optional - default interactive mode)
 
 Example:
-Create new cluster:      ./install.sh --project-id my-project --ssl-domains 'api.myapp.com api2.myapp.com' --region us-central1 --machine-type n1-standard-2
-Create staging cluster:  ./install.sh -r us-west1 -n staging -m n2-standard-8
+New cluster:             ./up -p my-project -r us-central1 -m n1-standard-2 -q yes
+Interactive mode:        ./up
 ```

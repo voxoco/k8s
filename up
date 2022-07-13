@@ -7,13 +7,13 @@ displayHelp() {
   echo
   echo "   -p, --project-id         Your google cloud project ID (optional - defaults to current project)"
   echo "   -r, --region             Specify the region to deploy the cluster. (optional - default is us-east1)"
-  echo "   -s, --ssl-domains        Specify the domains to enable for google-managed SSL (optional)"
   echo "   -m, --machine-type       Specify the machine type (optional - default is c2-standard-4)"
   echo "   -n, --namespace          Specify the namespace to deploy into (optional - default is production)"
+  echo "   -q, --quiet              Specify the quiet flag for non-interacive (optional - default interactive mode)"
   echo
   echo "   Example:"
-  echo "   Create new cluster:      $0 --project-id my-project --ssl-domains 'api.myapp.com api2.myapp.com' --region us-central1 --machine-type n1-standard-2"
-  echo "   Create staging cluster:  $0 -r us-west1 -n staging -m n2-standard-8"
+  echo "   New cluster:             $0 -p my-project -r us-central1 -m n1-standard-2"
+  echo "   Interactive mode: $0"
   echo
   exit 1
 }
@@ -37,14 +37,26 @@ addFirewallRules() {
 }
 
 createCerts() {
-  echo "Creating google-managed SSL for $1"
-  gcloud compute ssl-certificates create managed-certs --domains=$1 --global
+  # Get a list of domains that we want to enable for SSL
+  # This list comes from a line in the base/ingress/mci.yaml file
+  DOMAINS=$(cat base/ingress/mci.yaml | grep "pre-shared-certs" | grep -o -E '"(.*?)"' | tr -d '"' | tr -d ',')
+  DOMAINCOUNT=$(echo $DOMAINS | wc -w)
+
+  # If we have any domains, loop through them and create a certificate for each
+  if [ $DOMAINCOUNT -gt 0 ]; then
+    for DOMAIN in $DOMAINS; do
+      # Replace the - with . in the domain name
+      DOMAIN_REPLACE=$(echo $DOMAIN | sed 's/-/\./g')
+      # Create the certificate
+      gcloud compute ssl-certificates create $DOMAIN --domains=$DOMAIN_REPLACE --global  
+    done
+  fi
 }
 
 createCluster() {
   echo "Creating cluster..."
   # First make sure we delete any old hub memberships by that name
-  gcloud container hub memberships delete --quiet $REGION
+  gcloud container fleet memberships delete --quiet $REGION
   # Remove any kubeconfig clusters by that cluster name
   kubectl config delete-context $REGION
 
@@ -57,8 +69,8 @@ createCluster() {
 
   # Create GKE Multi Cluster Service stuff
   gcloud services enable gkehub.googleapis.com multiclusterservicediscovery.googleapis.com dns.googleapis.com trafficdirector.googleapis.com cloudresourcemanager.googleapis.com --project $PROJECT_ID
-  gcloud container hub multi-cluster-services enable --project $PROJECT_ID
-  gcloud container hub memberships register $REGION --gke-cluster "$ZONE/$REGION" --enable-workload-identity
+  gcloud container fleet multi-cluster-services enable --project $PROJECT_ID
+  gcloud container fleet memberships register $REGION --gke-cluster "$ZONE/$REGION" --enable-workload-identity --project $PROJECT_ID
   gcloud projects add-iam-policy-binding $PROJECT_ID --member "serviceAccount:$PROJECT_ID.svc.id.goog[gke-mcs/gke-mcs-importer]" --role "roles/compute.networkViewer"
 
   # Get cluster context and rename it to the cluster name
@@ -189,8 +201,8 @@ deployResources() {
   echo "Deploying resources..."
   
   # deploy pre-reqs (order is important)
-  $1/namespace
-  $1/rbac
+  kubectl apply -k $1/namespace
+  kubectl apply -k $1/rbac
   applySecrets "$NAMESPACE"
   kubectl apply -f base/pdb.yaml
 
@@ -217,7 +229,7 @@ EOF
   echo "kubeconfig set to $REGION"
 
   # Deploy NATS (because everything needs it)
-  $1/nats
+  kubectl apply -k $1/nats
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-0 --timeout=300s
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-1 --timeout=300s
@@ -226,13 +238,13 @@ EOF
   # Check if we are deploying the CONFIG_REGION
   if [ "$CONFIG_REGION" == "1" ] && [ "$NAMESPACE" == "production" ]; then
     # Deploy ingress
-    gcloud beta container hub ingress enable --config-membership=$REGION
+    gcloud container fleet ingress enable --config-membership=$REGION
 
-    echo "Sleeping 10 seconds..."
-    sleep 10
+    echo "Sleeping 30 seconds..."
+    sleep 30
 
     # Deploy MultiClusterService, MultiClusterIngress
-    kubectl apply -f base/ingress
+    kubectl apply -k base/ingress
   fi
 
   if [ "$NAMESPACE" == "staging" ]; then
@@ -241,31 +253,31 @@ EOF
   fi
 
   # Deploy db
-  $1/db
+  kubectl apply -k $1/db
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=db-0 --timeout=300s
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=db-1 --timeout=300s
 
   # Deploy all other services (order is important)
-  $1/kube-client
+  kubectl apply -k $1/kube-client
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/kube-client --timeout=300s
 
-  $1/jobs
+  kubectl apply -k $1/jobs
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/jobs --timeout=300s
 
-  $1/omnia-api
+  kubectl apply -k $1/omnia-api
 
-  $1/rtpengine
+  kubectl apply -k $1/rtpengine
   sleep 10
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l component=rtpengine --timeout=300s
 
-  $1/asterisk
+  kubectl apply -k $1/asterisk
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/ast --timeout=300s
 
-  $1/kamailio
+  kubectl apply -k $1/kamailio
 }
 
 # Get args
@@ -273,9 +285,9 @@ while [[ "$#" -gt 0 ]]; do
   case $1 in
     -p|--project-id) PROJECT_ID="$2"; shift ;;
     -r|--region) REGION="$2"; shift ;;
-    -s|--ssl-domains) SSL_DOMAINS="$2"; shift ;;
     -m|--machine-type) MACHINE_TYPE="$2"; shift ;;
     -n|--namespace) NAMESPACE="$2"; shift ;;
+    -q|--quiet) QUIET="$2"; shift ;;
     -h|--help) displayHelp; exit 0 ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
   esac
@@ -307,6 +319,56 @@ if [ -z "$ZONE" ]; then
   ZONE="$REGION-b"
 fi
 
+# Check if quiet flag as a value
+if [ -z "$QUIET" ]; then
+  QUIET=0
+  
+  # Ask for project-id
+  read -p "Project ID [$PROJECT_ID]: " PROJECT_ID
+  PROJECT_ID=${PROJECT_ID:-$(gcloud config get-value project)}
+  echo Selected Project ID: "$PROJECT_ID"
+
+  # Ask for region filtered by region in the US
+  REGION_NAMES=(us-west1 us-west2 us-west3 us-west4 us-central1 us-east1 us-east4 us-east5 us-south1)
+  SELECTED_REGION=()
+  PS3='Select a region: '
+  select name in "${REGION_NAMES[@]}" ; do
+    for reply in $REPLY ; do
+        SELECTED_REGION+=(${REGION_NAMES[reply - 1]})
+    done
+    [[ $SELECTED_REGION ]] && break
+  done
+  REGION=${SELECTED_REGION[0]}
+  ZONE="$REGION-b"
+  echo Selected region: "${SELECTED_REGION[@]}"
+
+  # Ask for machine type
+  MACHINE_TYPES=(n2-standard-2 n2-standard-4 n2-standard-8 n2-standard-16 n2-standard-32 c2-standard-4 c2-standard-8 c2-standard-16 c2-standard-30)
+  SELECTED_MACHINE_TYPE=()
+  PS3='Select a machine type: '
+  select name in "${MACHINE_TYPES[@]}" ; do
+    for reply in $REPLY ; do
+        SELECTED_MACHINE_TYPE+=(${MACHINE_TYPES[reply - 1]})
+    done
+    [[ $SELECTED_MACHINE_TYPE ]] && break
+  done
+  MACHINE_TYPE=${SELECTED_MACHINE_TYPE[0]}
+  echo Selected machine type: "${SELECTED_MACHINE_TYPE[@]}"
+
+  # Ask for namespace
+  NAMESPACE_NAMES=(production staging)
+  SELECTED_NAMESPACE=()
+  PS3='Select an environment: '
+  select name in "${NAMESPACE_NAMES[@]}" ; do
+    for reply in $REPLY ; do
+        SELECTED_NAMESPACE+=(${NAMESPACE_NAMES[reply - 1]})
+    done
+    [[ $SELECTED_NAMESPACE ]] && break
+    NAMESPACE=${SELECTED_NAMESPACE[0]}
+  done
+  
+fi
+
 
 # Sanity check to make sure namespace is set to 'production' or 'staging' before deploying
 if [ "$NAMESPACE" != "production" ] && [ "$NAMESPACE" != "staging" ]; then
@@ -323,46 +385,71 @@ if [ -n "$CLUSTER_EXISTS" ]; then
   exit 1
 fi
 
-# Create google managed certs
-DOMAINCOUNT=0
-# Loop through the SSL_DOMAINS and create certs for each one
-for DOMAIN in $SSL_DOMAINS; do DOMAINCOUNT=$((DOMAINCOUNT+1)) ; done
-if [ $DOMAINCOUNT -gt 0 ]; then
-  for DOMAIN in $SSL_DOMAINS; do createCerts "$DOMAIN" ; done
-fi
-
-# Figure out which cluster is the config region for multi cluster ingress using gcloud
+# Figure out which cluster is the config region for multi cluster ingress
+# If the current region is the config region, then we need to deploy the ingress and certs
 CONFIG_REGION=0
 if [ "$NAMESPACE" == "production" ]; then
+  # Get MultiClusterIngress status
   MCISTATUS=$(gcloud container fleet ingress describe --format 'get(state.state.code)')
-  if [ "$MCISTATUS" == "OK" ]; then
-    echo "Config cluster already exists"
-  else
-    echo "Need to create config cluster"
+  # Get the current config region
+  CURRENT_CONFIG_REGION=$(gcloud container fleet ingress describe --format 'get(spec.multiclusteringress.configMembership)' | rev | cut -d '/' -f1 | rev)
+  # Check if the current config region actually exists
+  CONFIG_REGION_EXISTS=$(gcloud container clusters list --format=json | grep "$CURRENT_CONFIG_REGION")
+  if [ -z "$CONFIG_REGION_EXISTS" ]; then
+    echo "Config region cluster $CURRENT_CONFIG_REGION doesn't even exist..."
+    # Blow away the ingress hub for the dead cluster
+    gcloud container fleet memberships delete --quiet $CURRENT_CONFIG_REGION
+    gcloud container fleet ingress update --config-membership=$REGION --quiet
+    # Set current config region to myself
+    CURRENT_CONFIG_REGION=$REGION
+    CONFIG_REGION=1
+  fi
+  if [ "$MCISTATUS" == "OK" ] && [ "$CURRENT_CONFIG_REGION" == "$REGION" ]; then
+    # Config region is myself
+    CONFIG_REGION=1
+  fi
+  if [ "$MCISTATUS" != "OK" ]; then
+    # We need to become the config region
     CONFIG_REGION=1
   fi
 fi
 
 # Ask for confirmation before continuing
-echo "Creating cluster $REGION in $ZONE with machine type $MACHINE_TYPE and namespace $NAMESPACE under project-id $PROJECT_ID ..."
-read -p "Continue (y/n)? " choice
-case "$choice" in
-  y|Y ) echo "Continuing";;
-  n|N ) echo "Exiting"; exit 1 ;;
-  * ) echo "Invalid. Exiting"; exit 1 ;;
-esac
+echo "The following will be created:"
+echo "  - Cluster: $REGION"
+echo "  - Namespace: $NAMESPACE"
+echo "  - Machine Type: $MACHINE_TYPE"
+echo "  - Project: $PROJECT_ID"
+echo "  - Deploying Config Region: $CONFIG_REGION"
+echo "  - Current MCI Config Region: $CURRENT_CONFIG_REGION"
+echo "  - Creating Certs: $CONFIG_REGION"
+
+# Check if QUIET is not 0. If it is, then we don't ask for confirmation
+if [ "$QUIET" == "0" ]; then
+  read -p "Continue (y/n)? " choice
+  case "$choice" in
+    y|Y ) echo "Continuing";;
+    n|N ) echo "Exiting"; exit 1 ;;
+    * ) echo "Invalid. Exiting"; exit 1 ;;
+  esac
+fi
 
 # Create firewall rules for external-sip and external-udp tagged Node Pool(s)
 addFirewallRules
+
+# Create certs
+if [ "$CONFIG_REGION" == "1" ] && [ "$NAMESPACE" == "production" ]; then
+  createCerts
+fi
 
 # Create the cluster
 createCluster
 
 # Deploy resources depending on the namespace
 if [ "$NAMESPACE" == "production" ]; then
-  deployResources "kubectl apply -f base"
+  deployResources "base"
 elif [ "$NAMESPACE" == "staging" ]; then
-  deployResources "kubectl apply -k staging"
+  deployResources "staging"
 else
   echo "Invalid namespace. Exiting"
   exit 1

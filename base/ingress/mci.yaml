@@ -15,7 +15,7 @@ spec:
         servicePort: 3030
       rules:
         - http:
-          paths:
+            paths:
             - path: /
               backend:
                 serviceName: omnia-api-mcs

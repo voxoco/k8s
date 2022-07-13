@@ -16,8 +16,6 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
-      nodeSelector:
-        cloud.google.com/gke-nodepool: default-pool
       volumes:
         - name: conf
           emptyDir: {}
