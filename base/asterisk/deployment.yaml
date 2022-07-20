@@ -6,7 +6,7 @@ metadata:
   labels:
     component: asterisk
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       component: asterisk
@@ -56,7 +56,7 @@ spec:
           image: ghcr.io/voxoco/asterisk-sidecar:latest
           resources:
             requests:
-              cpu: 300m
+              cpu: 200m
           ports:
             - containerPort: 4377
             - containerPort: 4573
@@ -109,7 +109,7 @@ spec:
           image: ghcr.io/voxoco/presence:latest
           resources:
             requests:
-              cpu: 200m
+              cpu: 100m
           ports:
             - name: http
               protocol: TCP

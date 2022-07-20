@@ -6,7 +6,7 @@ metadata:
   labels:
     component: jobs
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       component: jobs

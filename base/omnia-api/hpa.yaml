@@ -8,6 +8,6 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: omnia-api
-  minReplicas: 1
+  minReplicas: 2
   maxReplicas: 5
-  targetCPUUtilizationPercentage: 90
+  targetCPUUtilizationPercentage: 100

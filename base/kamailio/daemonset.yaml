@@ -90,7 +90,7 @@ spec:
           image: ghcr.io/voxoco/kamailio:latest
           resources:
             requests:
-              cpu: 900m
+              cpu: 2000m
           ports:
             - name: sip1
               protocol: UDP

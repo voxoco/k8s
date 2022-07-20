@@ -278,6 +278,8 @@ EOF
   kubectl -n $NAMESPACE wait --for=condition=available deploy/ast --timeout=300s
 
   kubectl apply -k $1/kamailio
+
+  kubectl apply -k $1/monitor-agent
 }
 
 # Get args

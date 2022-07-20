@@ -6,7 +6,7 @@ metadata:
   labels:
     component: omnia-api
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       component: omnia-api
