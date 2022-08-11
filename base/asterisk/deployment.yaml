@@ -127,6 +127,11 @@ spec:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
+            - name: GCLOUD_MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: gcloud-mysql-url
+                  key: connectionString
           imagePullPolicy: Always
         - name: asterisk
           image: ghcr.io/voxoco/asterisk:latest
