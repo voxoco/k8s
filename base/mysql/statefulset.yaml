@@ -1,57 +1,22 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: db
+  name: mysql
   namespace: production
 spec:
-  serviceName: "db"
+  serviceName: "mysql"
   replicas: 2
   selector:
     matchLabels:
-      app: db
+      app: mysql
   template:
     metadata:
       labels:
-        app: db
+        app: mysql
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
-      volumes:
-        - name: conf
-          emptyDir: {}
-        - name: data
-          emptyDir: {}
-      initContainers:
-        - name: init
-          image: ghcr.io/voxoco/innodb-cluster:latest
-          command: ["bash", "/init.sh"]
-          env:
-            - name: TZ
-              value: America/Chicago
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: CLUSTER_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: clusterName
-            - name: MYSQLSERVERID
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: serverId
-            - name: PODIP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: INNODB_BUFFER_SIZE
-              value: 3G
-          volumeMounts:
-            - name: conf
-              mountPath: /mnt/conf.d
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: 20
       containers:
         - name: mysqld-exporter
           image: prom/mysqld-exporter
@@ -71,20 +36,22 @@ spec:
             - --no-collect.info_schema.query_response_time
           imagePullPolicy: Always
         - name: sidecar
-          image: ghcr.io/voxoco/innodb-cluster:latest
-          command: ["bash", "/sidecar.sh"]
+          image: ghcr.io/voxoco/orchestrator-sidecar:latest
+          command: ["/bin/sh", "/mysql.sh"]
           resources:
             requests:
               cpu: 30m
           env:
-            - name: TZ
-              value: America/Chicago
-            - name: AWS_ACCESS_KEY
+            - name: S3_BUCKET
+              value: voxo-backups
+            - name: DB_NAME
+              value: main
+            - name: S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: aws
                   key: accessKey
-            - name: AWS_SECRET_KEY
+            - name: S3_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: aws
@@ -103,25 +70,44 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: clusterName
-            - name: BACKUP_INTERVAL
-              value: "43200"
-            - name: S3_DIRECTORY
-              value: innodb-cluster
             - name: PODIP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: REGIONS
-              value: us-west1 us-west2 us-west3 us-west4 us-central1 us-east1 us-east4 us-east5 us-south1
-          volumeMounts:
-            - name: data
-              mountPath: /mnt/data/mysql
+            - name: BACKUP_INTERVAL_HOURS
+              value: "4"
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: slack-webhook-url
+                  key: webhook-url
+          startupProbe:
+            timeoutSeconds: 5
+            failureThreshold: 20
+            periodSeconds: 5
+            exec:
+              command: ["sh", "-c", "mysql -h 127.0.0.1 -p$MYSQL_ROOT_PASSWORD -s --skip-column-names -e 'SELECT meta.cluster.ready FROM meta.cluster' | grep -q 1"]
           imagePullPolicy: Always
         - name: mysql
-          image: ghcr.io/voxoco/innodb-cluster:latest
+          image: mysql:8.0.31
+          args:
+            - --default-authentication-plugin=mysql_native_password
+            - --report-host=$(PODIP)
+            - --sql-mode=NO_ENGINE_SUBSTITUTION
+            - --innodb-flush-log-at-trx-commit=2
+            - --max-connections=600
+            - --max-allowed-packet=1073741824 # 1GB
+            - --innodb-buffer-pool-size=1500M # 1.5GB
+            - --event-scheduler=OFF
+            - --relay-log=$(POD_NAME)-$(CLUSTER_NAME)-relay-b
+            - --read-only=ON
+            - --slave-skip-errors=1452,1062,1304,1032,1133,1396
+            - --slave-net-timeout=4
+            - --gtid-mode=ON
+            - --enforce-gtid-consistency=ON
           resources:
             requests:
-              cpu: 1000m
+              cpu: 600m
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
@@ -132,31 +118,38 @@ spec:
               value: '%'
             - name: TZ
               value: America/Chicago
+            - name: DB_NAME
+              value: main
             - name: PODIP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
           ports:
             - containerPort: 3306
               name: mysql
-          volumeMounts:
-            - name: conf
-              mountPath: /etc/mysql
-            - name: data
-              mountPath: /var/lib/mysql
           livenessProbe:
             timeoutSeconds: 5
             exec:
-              command: ["bash", "-c", "mysql -u root -p$MYSQL_ROOT_PASSWORD -h 127.0.0.1 -s -N -e 'select member_state from performance_schema.replication_group_members where member_id=@@server_uuid;' 2>/dev/null | egrep -v 'ERROR|OFFLINE' && mysql -u root -p$MYSQL_ROOT_PASSWORD -h 127.0.0.1 -s -N -e 'select @@global.super_read_only;' 2>/dev/null | egrep -v 1"]
+              command: ["bash", "-c", "mysqladmin -u root -p$MYSQL_ROOT_PASSWORD ping &> /dev/null"]
           startupProbe:
             timeoutSeconds: 5
-            failureThreshold: 20
+            failureThreshold: 10
+            periodSeconds: 5
             exec:
-              command: ["bash", "-c", "test -f '/var/lib/mysql/ready.txt'"]
+              command: ["bash", "-c", "mysql -h 127.0.0.1 -p$MYSQL_ROOT_PASSWORD -s --skip-column-names -e 'SELECT 1' &> /dev/null"]
           lifecycle:
             preStop:
               exec:
-                command: ["bash", "-c", "mysqlsh -u root -h 127.0.0.1 -p$MYSQL_ROOT_PASSWORD -- cluster remove-instance $PODIP:3306 --force=true --interactive=false"]
+                command: ["bash", "-c", "sleep 10"]
           imagePullPolicy: Always
       imagePullSecrets:
         - name: regcred

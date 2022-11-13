@@ -90,27 +90,38 @@ data:
           - source_labels: [__name__]
             regex: "(asterisk_active_user_calls)"
             action: drop
-        - job_name: db1
+        - job_name: mysql1
           kubernetes_sd_configs:
           - role: pod
           relabel_configs:
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
-            regex: db
+            regex: mysql
           metric_relabel_configs:
           - source_labels: [__name__]
             regex: "(mysql_global_status_connections|mysql_global_status_opened_files|mysql_global_status_queries|mysql_global_status_threads_connected|mysql_global_status_threads_running|mysql_global_status_uptime|mysql_slave_status_slave_io_running|mysql_slave_status_slave_sql_running|mysql_up)"
             action: keep
-        - job_name: db2
+        - job_name: mysql2
           kubernetes_sd_configs:
           - role: pod
           relabel_configs:
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
-            regex: db
+            regex: mysql
           metric_relabel_configs:
           - source_labels: [command]
             regex: "(insert|delete|select|update)"
+            action: keep
+        - job_name: proxysql
+          kubernetes_sd_configs:
+          - role: pod
+          relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_component]
+            action: keep
+            regex: proxysql
+          metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: "(proxysql_server_connections_connected|proxysql_client_connections_connected|proxysql_connpool_conns_queries_total|proxysql_questions_total|proxysql_connpool_conns)"
             action: keep
         - job_name: kamailio
           kubernetes_sd_configs:

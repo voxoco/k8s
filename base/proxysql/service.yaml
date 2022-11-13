@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxysql
+  namespace: production
+  labels:
+    component: proxysql
+spec:
+  ports:
+    - name: proxysql
+      port: 6033
+    - name: proxysqladmin
+      port: 6032
+  selector:
+    component: proxysql

@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxysql
+  namespace: production
+  labels:
+    component: proxysql
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: proxysql
+  template:
+    metadata:
+      labels:
+        component: proxysql
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: proxysql
+          image: proxysql/proxysql
+          env:
+          ports:
+            - name: proxysql
+              containerPort: 6033
+            - name: prometheus
+              containerPort: 6070
+          resources:
+            requests:
+              cpu: 100m
+        - name: sidecar
+          image: ghcr.io/voxoco/orchestrator-sidecar:latest
+          command: ["/bin/sh", "/proxysql.sh"]
+          env:
+            - name: DEBUG
+              value: "0"
+            - name: DB_NAME
+              value: main
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+          startupProbe:
+            timeoutSeconds: 5
+            failureThreshold: 20
+            exec:
+              command: ["cat", "/ready.txt"]
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: regcred
