@@ -21,6 +21,36 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       terminationGracePeriodSeconds: 2700
       serviceAccountName: manager
+      initContainers:
+        - name: init
+          image: ghcr.io/voxoco/kube-client:latest
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+          command: ["node", "index.js"]
+          args:
+            - --assign-external-ip=true
+            - --region=$(REGION)
+            - --zone=$(ZONE)
+            - --node-name=$(NODE_NAME)
+            - --type=rtp
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: ZONE
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: zone
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
       containers:
         - name: rtpengine
           image: ghcr.io/voxoco/rtpengine:latest
@@ -89,6 +119,16 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
           imagePullPolicy: Always
         - name: redis
           image: redis:alpine
@@ -107,5 +147,8 @@ spec:
         - name: src
           hostPath:
             path: /usr/src
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
       imagePullSecrets:
         - name: regcred
