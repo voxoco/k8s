@@ -21,7 +21,6 @@ spec:
       containers:
         - name: proxysql
           image: proxysql/proxysql
-          env:
           ports:
             - name: proxysql
               containerPort: 6033
@@ -34,6 +33,18 @@ spec:
           image: ghcr.io/voxoco/orchestrator-sidecar:latest
           command: ["/bin/sh", "/proxysql.sh"]
           env:
+            - name: CONSUL_HTTP_SSL
+              value: "true"
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
             - name: DEBUG
               value: "0"
             - name: DB_NAME
