@@ -7,34 +7,37 @@ data:
   nats.conf: |
     pid_file: "/var/run/nats/nats.pid"
     http: 8222
-    server_name: $JS_SERVER_NAME
-    
+    server_name: "{{ env "REGION" }}-{{ env "POD_NAME" }}"
+
     jetstream: enabled
 
     authorization {
-      user: $USER,
-      password: $PASSWORD
+      user: "{{ env "USER" }}"
+      password: "{{ env "PASSWORD" }}"
     }
 
     cluster {
-      name: $NAME
+      name: "{{ env "REGION" }}"
       listen: "0.0.0.0:6222"
 
       routes = [
         nats://nats-0.nats:6222
         nats://nats-1.nats:6222
-        nats://nats-2.nats:6222
       ]
 
       connect_retries: 30
     }
-
+    {{ $exists := false }}{{ range tree "nats" }}{{ if .Key | contains "nats" }}{{ $exists = true }}{{ end }}{{ end }}
     gateway {
-      name: $NAME
+      name: "{{ env "REGION" }}"
       listen: "0.0.0.0:7522"
       connect_retries: 30
-      advertise: $ADVERTISE
-
-      gateways: $GATEWAYS
-
+      advertise: "{{ env "POD_NAME" }}.nats.{{ env "NS" }}.svc.{{ env "REGION" }}:7522"
+      gateways: [
+      {{ if $exists }}
+      {{ range $key, $pairs := tree "nats" | byKey }}{ "name": "{{ $key }}", "urls": [ {{ range $pair := $pairs }}"nats://{{ .Value }}:7522", {{ end }}] }, {{ end }}
+      {{ else }}
+      { "name": "{{ env "REGION" }}", "url": "nats://{{ env "POD_NAME" }}.nats.{{ env "NS" }}.svc.{{ env "REGION" }}:7522" }
+      {{ end }}
+      ]
     }

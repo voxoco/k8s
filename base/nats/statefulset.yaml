@@ -9,7 +9,7 @@ spec:
   selector:
     matchLabels:
       app: nats
-  replicas: 3
+  replicas: 2
   serviceName: "nats"
   template:
     metadata:
@@ -27,80 +27,99 @@ spec:
           emptyDir: {}
         - name: pid
           emptyDir: {}
-
       # Required to be able to HUP signal and apply config reload
       # to the server without restarting the pod.
       shareProcessNamespace: true
-      terminationGracePeriodSeconds: 60
+      terminationGracePeriodSeconds: 30
       initContainers:
         - name: init
-          image: alpine:3.7
-          command:
-            - sh
-            - -c
-            - |
-              # We need to loop through the list of regions and try to ping each one.
-              # Then build a list of the regions that are reachable.
-              # Then write the list of reachable regions to the nats.conf file replacing "$GATEWAYS"
-              # Create dns list from the regions.
-              DNS_RECORDS=""
-              for REGION in $REGIONS; do
-                DNS_RECORDS="$DNS_RECORDS nats-0.nats.$POD_NAMESPACE.svc.$REGION"
-              done
-
-              # Try to ping each of the regions.
-              REACHABLE_REGIONS=""
-              for DNS_RECORD in $DNS_RECORDS; do
-                if ping -W 2 -c 1 $DNS_RECORD > /dev/null; then
-                  REACHABLE_REGIONS="$REACHABLE_REGIONS $DNS_RECORD"
-                fi
-              done
-
-              # Count the reachable regions.
-              REACHABLE_REGION_COUNT=$(echo $REACHABLE_REGIONS | wc -w)
-
-              echo "Reachable regions: $REACHABLE_REGIONS"
-              echo "Reachable region count: $REACHABLE_REGION_COUNT"
-
-              # Build array of nats gateways.
-              NATS_GATEWAYS=""
-              # If there are no reachable regions, then we'll use myself.
-              if [ $REACHABLE_REGION_COUNT -eq 0 ]; then
-                NATS_GATEWAYS="[{ \"name\": \"$NAME\", \"url\": \"nats\://nats-0.nats.$POD_NAMESPACE.svc.$NAME:7522\" }]"
-              else
-                NATS_GATEWAYS="["
-                for REACHABLE_REGION in $REACHABLE_REGIONS; do
-                  REGION=$(echo $REACHABLE_REGION | cut -d '.' -f5)
-                  NATS_GATEWAYS="$NATS_GATEWAYS { \"name\": \"$REGION\", \"url\": \"nats://nats-0.nats.$POD_NAMESPACE.svc.$REGION:7522\" },"
-                done
-                NATS_GATEWAYS="$NATS_GATEWAYS ]"
-              fi
-
-              echo "NATS gateways: $NATS_GATEWAYS"
-
-              # Copy the nats.conf file to the config-volume-rw volume.
-              cp /tmp/nats.conf /etc/nats-config/nats.conf
-
-              # Replace "$GATEWAYS" with the NATS gateways in the nats.conf file.
-              sed -i "s|\$GATEWAYS|$NATS_GATEWAYS|" /etc/nats-config/nats.conf
+          image: hashicorp/consul-template:alpine
+          args: ["-template", "/tmp/nats.conf:/etc/nats-config/nats.conf", "-once"]
           env:
-            - name: NAME
+            - name: CONSUL_HTTP_SSL
+              value: "true"
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
+            - name: REGION
               valueFrom:
                 configMapKeyRef:
                   name: cluster-details
                   key: clusterName
-            - name: REGIONS
-              value: us-west1 us-west2 us-west3 us-west4 us-central1 us-east1 us-east4 us-east5 us-south1
-            - name: POD_NAMESPACE
+            - name: NS
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: USER
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: user
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nats-url
+                  key: pass
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           volumeMounts:
             - name: config-volume-ro
               mountPath: /tmp
             - name: config-volume-rw
               mountPath: /etc/nats-config
       containers:
+        - name: sidecar
+          image: badouralix/curl-jq:alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              #!/bin/sh
+              set -e
+              exit_script() {
+                echo "Tearing down..."
+                trap - SIGINT SIGTERM # clear the trap
+
+                # Delete this node from Consul
+                curl -s -X DELETE -H "X-Consul-Token: $CONSUL_HTTP_TOKEN" "https://$CONSUL_HTTP_ADDR/v1/kv/nats/$REGION/$POD_NAME"
+              }
+              trap exit_script SIGINT SIGTERM
+              # Register this node in Consul
+              curl -s -X PUT -H "X-Consul-Token: $CONSUL_HTTP_TOKEN" -d "$POD_NAME.nats.$NS.svc.$REGION" "https://$CONSUL_HTTP_ADDR/v1/kv/nats/$REGION/$POD_NAME"
+              while true; do sleep 1; done
+          env:
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NS
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
         - name: nats-exporter
           image: natsio/prometheus-nats-exporter:latest
           resources:
@@ -134,34 +153,6 @@ spec:
             - "nats-server"
             - "--config"
             - "/etc/nats-config/nats.conf"
-          env:
-            - name: NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: clusterName
-            - name: USER
-              valueFrom:
-                secretKeyRef:
-                  name: nats-url
-                  key: user
-            - name: PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: nats-url
-                  key: pass
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: ADVERTISE
-              value: $(POD_NAME).nats.$(POD_NAMESPACE).svc.$(NAME)
-            - name: JS_SERVER_NAME
-              value: $(NAME)-$(POD_NAME)
           volumeMounts:
             - name: config-volume-rw
               mountPath: /etc/nats-config

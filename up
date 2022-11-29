@@ -205,6 +205,28 @@ metadata:
 type: Opaque
 stringData:
   webhook-url: $(gcloud secrets versions access latest --secret=slack-webhook-url | grep -m1 "")
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: consul-address
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=consul-address | grep -m1 "")
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: consul-token
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=consul-token | grep -m1 "")
 EOF
 }
 
@@ -268,6 +290,16 @@ EOF
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=orc-0 --timeout=300s
 
+  # Deploy rqlite
+  kubectl apply -k $1/rqlite
+  sleep 2
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=rqlite-0 --timeout=300s
+
+  # Deploy rqlite daemonset
+  kubectl apply -f base/rqlite/daemonset.yaml
+  sleep 2
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l app=rqlite-ro --timeout=300s
+
   # Deploy MySQL
   kubectl apply -k $1/mysql
   sleep 2
@@ -279,10 +311,6 @@ EOF
   kubectl -n $NAMESPACE wait --for=condition=available deploy/proxysql --timeout=300s
 
   # Deploy all other services (order is important)
-  kubectl apply -k $1/kube-client
-  sleep 2
-  kubectl -n $NAMESPACE wait --for=condition=available deploy/kube-client --timeout=300s
-
   kubectl apply -k $1/jobs
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/jobs --timeout=300s

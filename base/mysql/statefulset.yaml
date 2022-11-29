@@ -42,6 +42,16 @@ spec:
             requests:
               cpu: 30m
           env:
+            - name: CONSUL_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
             - name: S3_BUCKET
               value: voxo-backups
             - name: DB_NAME

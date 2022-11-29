@@ -94,6 +94,16 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: clusterName
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
           volumeMounts:

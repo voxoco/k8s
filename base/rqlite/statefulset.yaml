@@ -1,0 +1,173 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rqlite
+  namespace: production
+spec:
+  serviceName: "rqlite"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rqlite
+  template:
+    metadata:
+      labels:
+        app: rqlite
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+    spec:
+      terminationGracePeriodSeconds: 5
+      volumes:
+        - name: data
+          emptyDir:
+            medium: Memory
+            sizeLimit: "6Gi"
+      containers:
+        - name: sidecar
+          image: rbsdev/s3cmd
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Last backup time in seconds since epoch
+              LAST_BACKUP_TIME=$(date +%s)
+
+              apk add jq
+
+              get_leader() {
+                LEADER=$(curl -s "localhost:4001/status" | jq -r .store.leader.addr | sed 's/:.*//')
+              }
+
+              exit_script() {
+                trap - SIGINT SIGTERM # clear the trap
+                echo "Caught signal, removing node from raft"
+                get_leader
+                curl -s -X DELETE http://$LEADER:4001/remove -d "{\"id\": \"$PODIP:4002\"}"
+              }
+
+              backup() {
+                # Check if we are the leader
+                get_leader
+                if [ "$LEADER" == "$PODIP" ]; then LAST_BACKUP_TIME=$(date +%s); fi
+
+                curl -s "localhost:4001/db/backup" -o /tmp/latest.sqlite
+                s3cmd put /tmp/latest.sqlite s3://$S3_BUCKET/rqlite/$(date +%s).sqlite
+                s3cmd put /tmp/latest.sqlite s3://$S3_BUCKET/rqlite/latest.sqlite
+                echo "Backup complete"
+              }
+
+              restore() {
+                if [ ! -f /tmp/latest.sqlite ]; then
+                  s3cmd get s3://$S3_BUCKET/rqlite/latest.sqlite /tmp/latest.sqlite
+                  if [ -f /tmp/latest.sqlite ]; then
+                    curl -s -X POST http://localhost:4001/db/load -H "Content-type: application/octet-stream" --data-binary @/tmp/latest.sqlite
+                    echo "Restored from backup"
+                  fi
+                fi
+              }
+
+              trap exit_script SIGINT SIGTERM
+
+              # Wait for the node to be ready by calling the /readyz endpoint and grep for "leader ok"
+              while ! curl -s "localhost:4001/readyz" | grep -q "leader ok"; do sleep 1; done
+
+              # Check if we are the leader
+              sleep 5
+              get_leader
+              if [ "$LEADER" == "$PODIP" ]; then restore; fi
+
+              while true; do
+                sleep 1
+                if [ $(($(date +%s) - $LAST_BACKUP_TIME)) -gt $(($BACKUP_INTERVAL_HOURS * 3600)) ]; then
+                  backup
+                  LAST_BACKUP_TIME=$(date +%s)
+                fi
+              done
+
+          env:
+            - name: BACKUP_INTERVAL_HOURS
+              value: "4"
+            - name: S3_BUCKET
+              value: voxo-backups
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws
+                  key: accessKey
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws
+                  key: secretAccessKey
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+        - name: rqlite
+          image: rqlite/rqlite
+          args:
+            - -http-addr=0.0.0.0:4001
+            - -raft-addr=0.0.0.0:4002
+            - -http-adv-addr=$(PODIP):4001
+            - -raft-adv-addr=$(PODIP):4002
+            - -raft-snap=1024
+            - -node-id=$(PODIP):4002
+            - -write-queue-batch-size=1000
+            - -disco-mode=consul-kv
+            - -disco-config={"address":"$(CONSUL_HTTP_ADDR)","token":"$(CONSUL_HTTP_TOKEN)","scheme":"https"}
+            - -raft-reap-node-timeout=24h
+            - -raft-reap-read-only-node-timeout=5s
+            - -on-disk
+            - -on-disk-startup
+            - -on-disk-path=/mnt/rqlite/rqlite.db
+          resources:
+            requests:
+              cpu: 100m
+          env:
+            - name: DATA_DIR
+              value: /mnt/rqlite
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          volumeMounts:
+            - name: data
+              mountPath: /mnt/rqlite
+          ports:
+            - containerPort: 4001
+              name: rqlite
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /readyz
+              port: 4001
+            periodSeconds: 5
+            timeoutSeconds: 2
+            # As rqlite manages a larger and larger dataset, it can take longer
+            # to be ready. This value may need to increase, depending on your experience.
+            initialDelaySeconds: 10
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /readyz?noleader
+              port: 4001
+            initialDelaySeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: regcred
