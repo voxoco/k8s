@@ -57,16 +57,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: USER
+            - name: NATSTOKEN
               valueFrom:
                 secretKeyRef:
-                  name: nats-url
-                  key: user
-            - name: PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: nats-url
-                  key: pass
+                  name: nats-token
+                  key: key
             - name: POD_NAME
               valueFrom:
                 fieldRef:

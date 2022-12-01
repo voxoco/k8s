@@ -101,11 +101,13 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
-            - name: NATSURL
+            - name: NATSSERVERS
+              value: "nats://nats-svc:4222"
+            - name: NATSTOKEN
               valueFrom:
                 secretKeyRef:
-                  name: nats-url
-                  key: connectionString
+                  name: nats-token
+                  key: key
             - name: MYSQL
               valueFrom:
                 secretKeyRef:

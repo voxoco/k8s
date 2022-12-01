@@ -9,3 +9,19 @@ spec:
   selector:
     app: nats
   clusterIP: None
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nats-svc
+  namespace: production
+  labels:
+    app: nats
+spec:
+  ports:
+    - name: nats
+      port: 4222
+    - name: ws
+      port: 8080
+  selector:
+    app: nats

@@ -108,13 +108,11 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: nats-url
+  name: nats-token
   namespace: $1
 type: Opaque
 stringData:
-  connectionString: $(gcloud secrets versions access latest --secret=nats-url)
-  user: $(gcloud secrets versions access latest --secret=nats-url | cut -d ':' -f2 | awk -F// '{print $2}')
-  pass: $(gcloud secrets versions access latest --secret=nats-url | cut -d ':' -f3 | cut -d '@' -f1)
+  key: $(gcloud secrets versions access latest --secret=nats-token)
 
 ---
 
@@ -266,7 +264,6 @@ EOF
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-0 --timeout=300s
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-1 --timeout=300s
-  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-2 --timeout=300s
 
   # Check if we are deploying the CONFIG_REGION
   if [ "$CONFIG_REGION" == "1" ] && [ "$NAMESPACE" == "production" ]; then

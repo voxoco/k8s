@@ -11,9 +11,13 @@ data:
 
     jetstream: enabled
 
+    websocket {
+      port: 8080
+      no_tls: true
+    }
+
     authorization {
-      user: "{{ env "USER" }}"
-      password: "{{ env "PASSWORD" }}"
+      token: "{{ env "NATSTOKEN" }}"
     }
 
     cluster {
