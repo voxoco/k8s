@@ -34,7 +34,7 @@ This project assumes you have the following installed/configured
 
 `up` 
 ----------
-This takes care of the whole install process. Supported namespaces are `production`, and `staging`
+This takes care of the whole install process.
 * Create any google managed certs provided via command line args
 * Create firewall rules for both `external-sip` and `external-rtp` traffic (both node pools)
 * Obtain the MultiClusterIngress config cluster (since there can only be one)
@@ -53,17 +53,13 @@ This takes care of the whole install process. Supported namespaces are `producti
 
 `base/`
 ---------
-Contains all production manifests to be deployed in a production environment. `./up --namespace production`
+Contains all production manifests to be deployed in a production environment. `./up`
 
 `base/ingress`
 ---------
 This only gets deployed to the [Config Cluster](https://cloud.google.com/kubernetes-engine/docs/concepts/multi-cluster-ingress#config_cluster_design) which is determined in the install script automatically.
 
-`staging/`
----------
-Contains the staging environment (modifed by [kustomize](https://kustomize.io/)) to be deployed as a single cluster. `./up --namespace staging`
-
-## Production or staging install
+## Install example
 
 Run `./up` with options below
 ```
@@ -72,7 +68,6 @@ Usage: ./up [options...]
 -p, --project-id         Your google cloud project ID (optional - defaults to current project)
 -r, --region             Specify the region to deploy the cluster. (optional - default is us-east1)
 -m, --machine-type       Specify the machine type (optional - default is c2-standard-4)
--n, --namespace          Specify the namespace to deploy into (optional - default is production)
 -q, --quiet              Specify the quiet flag for non-interacive (optional - default interactive mode)
 
 Example:

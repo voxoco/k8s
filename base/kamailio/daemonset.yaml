@@ -25,6 +25,8 @@ spec:
         - name: init
           image: ghcr.io/voxoco/kube-client:latest
           volumeMounts:
+            - name: config
+              mountPath: /etc/kamailio/kv
             - name: google-service-account
               mountPath: /var/secrets/google
           command: ["node", "index.js"]
@@ -34,7 +36,23 @@ spec:
             - --zone=$(ZONE)
             - --node-name=$(NODE_NAME)
             - --type=sip
+            - --kamailio-consul=1
           env:
+            - name: SERVERID
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: serverId
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
             - name: REGION
@@ -54,9 +72,6 @@ spec:
       containers:
         - name: kamailio-sidecar
           image: ghcr.io/voxoco/kamailio-sidecar:latest
-          resources:
-            requests:
-              cpu: 50m
           env:
             - name: CONSUL_HTTP_ADDR
               valueFrom:
@@ -105,17 +120,15 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kamailio/kv
           ports:
-            - name: http
-              containerPort: 42184
             - name: metrics
               containerPort: 9105
           imagePullPolicy: Always
         - name: heplify
           image: sipcapture/heplify:latest
-          resources:
-            requests:
-              cpu: 200m
           command:
             - "./heplify"
             - "-hn"
@@ -142,34 +155,12 @@ spec:
           image: ghcr.io/voxoco/kamailio:latest
           resources:
             requests:
-              cpu: 2000m
+              cpu: 2300m
           ports:
-            - name: sip1
-              protocol: UDP
-              containerPort: 5060
-            - name: sip2
-              protocol: UDP
-              containerPort: 5061
-            - name: sip3
-              protocol: UDP
-              containerPort: 8060
             - name: webrtc
               protocol: TCP
               containerPort: 8080
-            - name: http
-              protocol: TCP
-              containerPort: 42185
           env:
-            - name: CONSUL_HTTP_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: consul-address
-                  key: key
-            - name: CONSUL_HTTP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: consul-token
-                  key: key
             - name: REGION
               valueFrom:
                 configMapKeyRef:
@@ -181,25 +172,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: NATSURL
-              valueFrom:
-                secretKeyRef:
-                  name: nats-url
-                  key: connectionString
             - name: MYSQL
               valueFrom:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
-            - name: MYSQLKAM
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-url
-                  key: connectionString
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:
@@ -209,12 +186,17 @@ spec:
               value: "4"
             - name: CLOUD
               value: gcp
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kamailio/kv
           securityContext:
             privileged: true
             capabilities:
               add: [ "NET_ADMIN" ]
           imagePullPolicy: Always
       volumes:
+        - name: config
+          emptyDir: {}
         - name: google-service-account
           secret:
             secretName: google-service-account

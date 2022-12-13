@@ -88,9 +88,6 @@ spec:
           imagePullPolicy: Always
         - name: rtpengine-sidecar
           image: ghcr.io/voxoco/rtpengine-sidecar:latest
-          resources:
-            requests:
-              cpu: 10m
           ports:
             - containerPort: 42187
           env:
@@ -134,9 +131,6 @@ spec:
           imagePullPolicy: Always
         - name: redis
           image: redis:alpine
-          resources:
-            requests:
-              cpu: 10m
           ports:
             - containerPort: 6379
       volumes:

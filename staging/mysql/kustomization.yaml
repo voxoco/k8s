@@ -1,7 +1,0 @@
-resources:
-  - ../../base/mysql
-namespace: staging
-images:
-  - name: ghcr.io/voxoco/orchestrator-sidecar
-    newName: ghcr.io/voxoco/orchestrator-sidecar
-    newTag: dev

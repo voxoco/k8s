@@ -66,6 +66,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           volumeMounts:
             - name: config-volume-ro
               mountPath: /tmp
@@ -117,9 +121,6 @@ spec:
                   fieldPath: metadata.namespace
         - name: nats-exporter
           image: natsio/prometheus-nats-exporter:latest
-          resources:
-            requests:
-              cpu: 10m
           args:
             - -varz
             - -use_internal_server_id

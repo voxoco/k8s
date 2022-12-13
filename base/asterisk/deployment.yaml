@@ -19,7 +19,7 @@ spec:
     spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: default-pool
-      terminationGracePeriodSeconds: 2700
+      terminationGracePeriodSeconds: 10800
       volumes:
         - name: google-service-account
           secret:
@@ -54,9 +54,6 @@ spec:
       containers:
         - name: asterisk-sidecar
           image: ghcr.io/voxoco/asterisk-sidecar:latest
-          resources:
-            requests:
-              cpu: 200m
           ports:
             - containerPort: 4377
             - containerPort: 4573
@@ -124,9 +121,6 @@ spec:
           imagePullPolicy: Always
         - name: presence
           image: ghcr.io/voxoco/presence:latest
-          resources:
-            requests:
-              cpu: 100m
           ports:
             - name: http
               protocol: TCP

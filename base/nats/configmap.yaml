@@ -34,14 +34,14 @@ data:
     {{ $exists := false }}{{ range tree "nats" }}{{ if .Key | contains "nats" }}{{ $exists = true }}{{ end }}{{ end }}
     gateway {
       name: "{{ env "REGION" }}"
-      listen: "0.0.0.0:7522"
+      listen: "0.0.0.0:7222"
       connect_retries: 30
-      advertise: "{{ env "POD_NAME" }}.nats.{{ env "NS" }}.svc.{{ env "REGION" }}:7522"
+      advertise: "{{ env "PODIP" }}:7222"
       gateways: [
       {{ if $exists }}
-      {{ range $key, $pairs := tree "nats" | byKey }}{ "name": "{{ $key }}", "urls": [ {{ range $pair := $pairs }}"nats://{{ .Value }}:7522", {{ end }}] }, {{ end }}
+      {{ range $key, $pairs := tree "nats" | byKey }}{ "name": "{{ $key }}", "urls": [ {{ range $pair := $pairs }}"nats://{{ .Value }}:7222", {{ end }}] }, {{ end }}
       {{ else }}
-      { "name": "{{ env "REGION" }}", "url": "nats://{{ env "POD_NAME" }}.nats.{{ env "NS" }}.svc.{{ env "REGION" }}:7522" }
+      { "name": "{{ env "REGION" }}", "url": "nats://{{ env "POD_NAME" }}.nats.{{ env "NS" }}.svc.{{ env "REGION" }}:7222" }
       {{ end }}
       ]
     }

@@ -34,15 +34,10 @@ spec:
 
               apk add jq
 
-              get_leader() {
-                LEADER=$(curl -s "localhost:4001/status" | jq -r .store.leader.addr | sed 's/:.*//')
-              }
-
               exit_script() {
                 trap - SIGINT SIGTERM # clear the trap
                 echo "Caught signal, removing node from raft"
-                get_leader
-                curl -s -X DELETE http://$LEADER:4001/remove -d "{\"id\": \"$PODIP:4002\"}"
+                curl -s -X DELETE http://localhost:4001/remove -d "{\"id\": \"$PODIP:4002\"}"
               }
 
               backup() {
@@ -73,8 +68,9 @@ spec:
 
               # Check if we are the leader
               sleep 5
-              get_leader
-              if [ "$LEADER" == "$PODIP" ]; then restore; fi
+              if [ "$(curl -s "localhost:4001/status" | jq -r .store.leader.addr | sed 's/:.*//')" == "$PODIP" ]; then 
+                restore
+              fi
 
               while true; do
                 sleep 1

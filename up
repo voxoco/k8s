@@ -8,7 +8,6 @@ displayHelp() {
   echo "   -p, --project-id         Your google cloud project ID (optional - defaults to current project)"
   echo "   -r, --region             Specify the region to deploy the cluster. (optional - default is us-east1)"
   echo "   -m, --machine-type       Specify the machine type (optional - default is c2-standard-4)"
-  echo "   -n, --namespace          Specify the namespace to deploy into (optional - default is production)"
   echo "   -q, --quiet              Specify the quiet flag for non-interacive (optional - default interactive mode)"
   echo
   echo "   Example:"
@@ -22,7 +21,7 @@ addFirewallRules() {
   FIREWALL_SIP_EXISTS=$(gcloud compute firewall-rules list --format=json | grep "external-sip")
   if [ -z "$FIREWALL_SIP_EXISTS" ]; then
     echo "Creating external-sip firewall rule"
-    gcloud compute firewall-rules create "external-sip" --allow=tcp:5060,tcp:5029,udp:5060 --description="Allow SIP related traffic" --direction=INGRESS --source-ranges="0.0.0.0/0" --target-tags="external-sip"
+    gcloud compute firewall-rules create "external-sip" --allow=tcp:5060,udp:5060 --description="Allow SIP related traffic" --direction=INGRESS --source-ranges="0.0.0.0/0" --target-tags="external-sip"
   else
     echo "external-sip firewall rule already exists"
   fi
@@ -266,7 +265,7 @@ EOF
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-1 --timeout=300s
 
   # Check if we are deploying the CONFIG_REGION
-  if [ "$CONFIG_REGION" == "1" ] && [ "$NAMESPACE" == "production" ]; then
+  if [ "$CONFIG_REGION" == "1" ]; then
     # Deploy ingress
     gcloud container fleet ingress enable --config-membership=$REGION
 
@@ -274,12 +273,7 @@ EOF
     sleep 30
 
     # Deploy MultiClusterService, MultiClusterIngress
-    kubectl apply -k base/ingress
-  fi
-
-  if [ "$NAMESPACE" == "staging" ]; then
-    # Deploy ingress
-    kubectl apply -k staging/ingress
+    kubectl apply -k $1/ingress
   fi
 
   # Deploy orchestrator
@@ -291,11 +285,6 @@ EOF
   kubectl apply -k $1/rqlite
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=rqlite-0 --timeout=300s
-
-  # Deploy rqlite daemonset
-  kubectl apply -f base/rqlite/daemonset.yaml
-  sleep 2
-  kubectl -n $NAMESPACE wait --for=condition=ready pod -l app=rqlite-ro --timeout=300s
 
   # Deploy MySQL
   kubectl apply -k $1/mysql
@@ -333,7 +322,6 @@ while [[ "$#" -gt 0 ]]; do
     -p|--project-id) PROJECT_ID="$2"; shift ;;
     -r|--region) REGION="$2"; shift ;;
     -m|--machine-type) MACHINE_TYPE="$2"; shift ;;
-    -n|--namespace) NAMESPACE="$2"; shift ;;
     -q|--quiet) QUIET="$2"; shift ;;
     -h|--help) displayHelp; exit 0 ;;
     *) echo "Unknown parameter passed: $1"; exit 1 ;;
@@ -351,10 +339,8 @@ if [ -z "$MACHINE_TYPE" ]; then
   MACHINE_TYPE="c2-standard-4"
 fi
 
-# Set a default namespace if it isn't set
-if [ -z "$NAMESPACE" ]; then
-  NAMESPACE="production"
-fi
+# Set a default namespace
+NAMESPACE="production"
 
 # Set a default region if it isn't set
 if [ -z "$REGION" ]; then
@@ -401,27 +387,6 @@ if [ -z "$QUIET" ]; then
   done
   MACHINE_TYPE=${SELECTED_MACHINE_TYPE[0]}
   echo Selected machine type: "${SELECTED_MACHINE_TYPE[@]}"
-
-  # Ask for namespace
-  NAMESPACE_NAMES=(production staging)
-  SELECTED_NAMESPACE=()
-  PS3='Select an environment: '
-  select name in "${NAMESPACE_NAMES[@]}" ; do
-    for reply in $REPLY ; do
-        SELECTED_NAMESPACE+=(${NAMESPACE_NAMES[reply - 1]})
-    done
-    [[ $SELECTED_NAMESPACE ]] && break
-    NAMESPACE=${SELECTED_NAMESPACE[0]}
-  done
-  
-fi
-
-
-# Sanity check to make sure namespace is set to 'production' or 'staging' before deploying
-if [ "$NAMESPACE" != "production" ] && [ "$NAMESPACE" != "staging" ]; then
-  echo "Namespace must be either 'production' or 'staging'"
-  displayHelp
-  exit 1;
 fi
 
 # Sanity check to make sure the cluster doesn't already exist
@@ -435,30 +400,29 @@ fi
 # Figure out which cluster is the config region for multi cluster ingress
 # If the current region is the config region, then we need to deploy the ingress and certs
 CONFIG_REGION=0
-if [ "$NAMESPACE" == "production" ]; then
-  # Get MultiClusterIngress status
-  MCISTATUS=$(gcloud container fleet ingress describe --format 'get(state.state.code)')
-  # Get the current config region
-  CURRENT_CONFIG_REGION=$(gcloud container fleet ingress describe --format 'get(spec.multiclusteringress.configMembership)' | rev | cut -d '/' -f1 | rev)
-  # Check if the current config region actually exists
-  CONFIG_REGION_EXISTS=$(gcloud container clusters list --format=json | grep "$CURRENT_CONFIG_REGION")
-  if [ -z "$CONFIG_REGION_EXISTS" ]; then
-    echo "Config region cluster $CURRENT_CONFIG_REGION doesn't even exist..."
-    # Blow away the ingress hub for the dead cluster
-    gcloud container fleet memberships delete --quiet $CURRENT_CONFIG_REGION
-    gcloud container fleet ingress update --config-membership=$REGION --quiet
-    # Set current config region to myself
-    CURRENT_CONFIG_REGION=$REGION
-    CONFIG_REGION=1
-  fi
-  if [ "$MCISTATUS" == "OK" ] && [ "$CURRENT_CONFIG_REGION" == "$REGION" ]; then
-    # Config region is myself
-    CONFIG_REGION=1
-  fi
-  if [ "$MCISTATUS" != "OK" ]; then
-    # We need to become the config region
-    CONFIG_REGION=1
-  fi
+
+# Get MultiClusterIngress status
+MCISTATUS=$(gcloud container fleet ingress describe --format 'get(state.state.code)')
+# Get the current config region
+CURRENT_CONFIG_REGION=$(gcloud container fleet ingress describe --format 'get(spec.multiclusteringress.configMembership)' | rev | cut -d '/' -f1 | rev)
+# Check if the current config region actually exists
+CONFIG_REGION_EXISTS=$(gcloud container clusters list --format=json | grep "$CURRENT_CONFIG_REGION")
+if [ -z "$CONFIG_REGION_EXISTS" ]; then
+  echo "Config region cluster $CURRENT_CONFIG_REGION doesn't even exist..."
+  # Blow away the ingress hub for the dead cluster
+  gcloud container fleet memberships delete --quiet $CURRENT_CONFIG_REGION
+  gcloud container fleet ingress update --config-membership=$REGION --quiet
+  # Set current config region to myself
+  CURRENT_CONFIG_REGION=$REGION
+  CONFIG_REGION=1
+fi
+if [ "$MCISTATUS" == "OK" ] && [ "$CURRENT_CONFIG_REGION" == "$REGION" ]; then
+  # Config region is myself
+  CONFIG_REGION=1
+fi
+if [ "$MCISTATUS" != "OK" ]; then
+  # We need to become the config region
+  CONFIG_REGION=1
 fi
 
 # Ask for confirmation before continuing
@@ -485,22 +449,15 @@ fi
 addFirewallRules
 
 # Create certs
-if [ "$CONFIG_REGION" == "1" ] && [ "$NAMESPACE" == "production" ]; then
+if [ "$CONFIG_REGION" == "1" ]; then
   createCerts
 fi
 
 # Create the cluster
 createCluster
 
-# Deploy resources depending on the namespace
-if [ "$NAMESPACE" == "production" ]; then
-  deployResources "base"
-elif [ "$NAMESPACE" == "staging" ]; then
-  deployResources "staging"
-else
-  echo "Invalid namespace. Exiting"
-  exit 1
-fi
+# Deploy resources
+deployResources "base"
 
 echo "DONE DEPLOYING $REGION"
 

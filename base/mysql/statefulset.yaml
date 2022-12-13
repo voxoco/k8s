@@ -20,9 +20,6 @@ spec:
       containers:
         - name: mysqld-exporter
           image: prom/mysqld-exporter
-          resources:
-            requests:
-              cpu: 10m
           env:
             - name: DATA_SOURCE_NAME
               value: mysqld-exporter:123456@(127.0.0.1:3306)/
@@ -38,9 +35,6 @@ spec:
         - name: sidecar
           image: ghcr.io/voxoco/orchestrator-sidecar:latest
           command: ["/bin/sh", "/mysql.sh"]
-          resources:
-            requests:
-              cpu: 30m
           env:
             - name: CONSUL_ADDRESS
               valueFrom:
@@ -117,7 +111,7 @@ spec:
             - --enforce-gtid-consistency=ON
           resources:
             requests:
-              cpu: 600m
+              cpu: 650m
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:

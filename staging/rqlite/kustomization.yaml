@@ -1,3 +1,0 @@
-resources:
-  - ../../base/rqlite
-namespace: staging
