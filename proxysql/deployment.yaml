@@ -24,7 +24,7 @@ spec:
           ports:
             - name: proxysql
               containerPort: 6033
-            - name: prometheus
+            - name: metrics
               containerPort: 6070
           resources:
             requests:

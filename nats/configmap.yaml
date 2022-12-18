@@ -27,6 +27,7 @@ data:
       routes = [
         nats://nats-0.nats:6222
         nats://nats-1.nats:6222
+        nats://nats-2.nats:6222
       ]
 
       connect_retries: 30

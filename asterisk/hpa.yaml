@@ -1,4 +1,4 @@
-apiVersion: autoscaling/v1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: asterisk
@@ -10,4 +10,10 @@ spec:
     name: ast
   minReplicas: 2
   maxReplicas: 20
-  targetCPUUtilizationPercentage: 100
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 90

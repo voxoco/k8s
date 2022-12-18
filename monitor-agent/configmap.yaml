@@ -5,8 +5,6 @@ metadata:
 apiVersion: v1
 data:
   agent.yaml: |
-    server:
-      http_listen_port: 12345
     metrics:
       wal_directory: /tmp/grafana-agent-wal
       global:
@@ -159,10 +157,59 @@ data:
         clients:
         - url: ${LOGSURL}
           basic_auth:
-            username: ${LOGSUSER}
-            password: ${PASS}
+            username: ${LOGSUSR}
+            password: ${LOGSPASS}
           external_labels:
-            cluster: cloud
+            region: ${NAME}
+            cluster: ${NAME}
+            job: integrations/kubernetes/eventhandler
+        positions:
+          filename: /tmp/positions.yaml
+        target_config:
+          sync_period: 10s
+
+---
+
+kind: ConfigMap
+metadata:
+  name: grafana-agent-logs
+  namespace: production
+apiVersion: v1
+data:
+  agent.yaml: |    
+    metrics:
+      wal_directory: /tmp/grafana-agent-wal
+      global:
+        scrape_interval: 15s
+        external_labels:
+          region: ${NAME}
+          cluster: ${NAME}
+      configs:
+      - name: integrations
+        remote_write:
+        - url: ${URL}
+          basic_auth:
+            username: ${USER}
+            password: ${PASS}
+    integrations:
+      prometheus_remote_write:
+      - url: ${URL}
+        basic_auth:
+          username: ${USER}
+          password: ${PASS}
+      
+      
+    logs:
+      configs:
+      - name: integrations
+        clients:
+        - url: ${LOGSURL}
+          basic_auth:
+            username: ${LOGSUSER}
+            password: ${LOGSPASS}
+          external_labels:
+            region: ${NAME}
+            cluster: ${NAME}
         positions:
           filename: /tmp/positions.yaml
         target_config:
@@ -183,6 +230,14 @@ data:
             target_label: 'transport'
           - source_labels: ['__journal_priority_keyword']
             target_label: 'level'
+        - job_name: integrations/node_exporter_direct_scrape
+          static_configs:
+          - targets:
+            - localhost
+            labels:
+              instance: hostname
+              __path__: /var/log/{syslog,messages,*.log}
+              job: integrations/node_exporter
         - job_name: integrations/kubernetes/pod-logs
           kubernetes_sd_configs:
             - role: pod
@@ -219,5 +274,3 @@ data:
                 - __meta_kubernetes_pod_uid
                 - __meta_kubernetes_pod_container_name
               target_label: __path__
-
-    

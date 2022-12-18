@@ -37,8 +37,8 @@ addFirewallRules() {
 
 createCerts() {
   # Get a list of domains that we want to enable for SSL
-  # This list comes from a line in the base/ingress/mci.yaml file
-  DOMAINS=$(cat base/ingress/mci.yaml | grep "pre-shared-certs" | grep -o -E '"(.*?)"' | tr -d '"' | tr -d ',')
+  # This list comes from a line in the ingress/mci.yaml file
+  DOMAINS=$(cat ingress/mci.yaml | grep "pre-shared-certs" | grep -o -E '"(.*?)"' | tr -d '"' | tr -d ',')
   DOMAINCOUNT=$(echo $DOMAINS | wc -w)
 
   # If we have any domains, loop through them and create a certificate for each
@@ -60,7 +60,7 @@ createCluster() {
   kubectl config delete-context $REGION
 
   # Create the cluster
-  gcloud beta container --project "$PROJECT_ID" clusters create "$REGION" --zone "$ZONE" --no-enable-basic-auth --cluster-version "1.23" --release-channel "None" --machine-type "$MACHINE_TYPE" --image-type "COS_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --tags "worker,$REGION" --max-pods-per-node "110" --num-nodes "1" --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM --enable-ip-alias --network "projects/$PROJECT_ID/global/networks/default" --subnetwork "projects/$PROJECT_ID/regions/$REGION/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --enable-autoscaling --min-nodes "1" --max-nodes "4" --enable-dataplane-v2 --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --autoscaling-profile optimize-utilization --workload-pool "$PROJECT_ID.svc.id.goog" --enable-shielded-nodes --node-locations "$ZONE" --cluster-dns clouddns --cluster-dns-scope vpc --cluster-dns-domain $REGION
+  gcloud beta container --project "$PROJECT_ID" clusters create "$REGION" --zone "$ZONE" --no-enable-basic-auth --cluster-version "1.24" --release-channel "None" --machine-type "$MACHINE_TYPE" --image-type "COS_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --tags "worker,$REGION" --max-pods-per-node "110" --num-nodes "1" --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM --enable-ip-alias --network "projects/$PROJECT_ID/global/networks/default" --subnetwork "projects/$PROJECT_ID/regions/$REGION/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --enable-autoscaling --min-nodes "1" --max-nodes "4" --enable-dataplane-v2 --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --autoscaling-profile optimize-utilization --workload-pool "$PROJECT_ID.svc.id.goog" --enable-shielded-nodes --node-locations "$ZONE" --cluster-dns clouddns --cluster-dns-scope vpc --cluster-dns-domain $REGION
   # Add the external-rtp node pool to the cluster
   gcloud beta container --project "$PROJECT_ID" node-pools create "external-rtp" --cluster "$REGION" --zone "$ZONE" --machine-type "$MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "external-rtp,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "2" --node-locations "$ZONE"
   # Add the external-sip node pool to the cluster
@@ -197,6 +197,17 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
+  name: loki-password
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=loki-password | grep -m1 "")
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
   name: slack-webhook-url
   namespace: $1
 type: Opaque
@@ -231,10 +242,10 @@ deployResources() {
   echo "Deploying resources..."
   
   # deploy pre-reqs (order is important)
-  kubectl apply -k $1/namespace
-  kubectl apply -k $1/rbac
+  kubectl apply -k namespace
+  kubectl apply -k rbac
   applySecrets "$NAMESPACE"
-  kubectl apply -f base/pdb.yaml
+  kubectl apply -f pdb.yaml
 
   # Get the subnet of the current region (which will be unique)
   SUBNET=$(gcloud compute networks subnets describe default --region=$REGION | grep "gatewayAddress" | awk -F '.' '{print $2}')
@@ -259,7 +270,7 @@ EOF
   echo "kubeconfig set to $REGION"
 
   # Deploy NATS (because everything needs it)
-  kubectl apply -k $1/nats
+  kubectl apply -k nats
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-0 --timeout=300s
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=nats-1 --timeout=300s
@@ -273,47 +284,47 @@ EOF
     sleep 30
 
     # Deploy MultiClusterService, MultiClusterIngress
-    kubectl apply -k $1/ingress
+    kubectl apply -k ingress
   fi
 
   # Deploy orchestrator
-  kubectl apply -k $1/orchestrator
+  kubectl apply -k orchestrator
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=orc-0 --timeout=300s
 
   # Deploy rqlite
-  kubectl apply -k $1/rqlite
+  kubectl apply -k rqlite
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=rqlite-0 --timeout=300s
 
   # Deploy MySQL
-  kubectl apply -k $1/mysql
+  kubectl apply -k mysql
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=mysql-0 --timeout=300s
 
   # Deploy Proxysql
-  kubectl apply -k $1/proxysql
+  kubectl apply -k proxysql
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/proxysql --timeout=300s
 
   # Deploy all other services (order is important)
-  kubectl apply -k $1/jobs
+  kubectl apply -k jobs
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/jobs --timeout=300s
 
-  kubectl apply -k $1/omnia-api
+  kubectl apply -k omnia-api
 
-  kubectl apply -k $1/rtpengine
+  kubectl apply -k rtpengine
   sleep 10
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l component=rtpengine --timeout=300s
 
-  kubectl apply -k $1/asterisk
+  kubectl apply -k asterisk
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/ast --timeout=300s
 
-  kubectl apply -k $1/kamailio
+  kubectl apply -k kamailio
 
-  kubectl apply -k $1/monitor-agent
+  kubectl apply -k monitor-agent
 }
 
 # Get args
@@ -457,7 +468,7 @@ fi
 createCluster
 
 # Deploy resources
-deployResources "base"
+deployResources
 
 echo "DONE DEPLOYING $REGION"
 

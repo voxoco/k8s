@@ -1,4 +1,4 @@
-apiVersion: autoscaling/v1
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: jobs
@@ -9,5 +9,11 @@ spec:
     kind: Deployment
     name: jobs
   minReplicas: 2
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 100
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 90
