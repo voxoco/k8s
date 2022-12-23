@@ -19,7 +19,7 @@ spec:
     spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: default-pool
-      terminationGracePeriodSeconds: 10800
+      terminationGracePeriodSeconds: 21600
       volumes:
         - name: google-service-account
           secret:

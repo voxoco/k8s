@@ -6,7 +6,7 @@ metadata:
   labels:
     component: omnia-api
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       component: omnia-api
@@ -26,7 +26,7 @@ spec:
           image: ghcr.io/voxoco/omnia-api:latest
           resources:
             requests:
-              cpu: 200m
+              cpu: 500m
           env:
             - name: TZ
               value: America/Chicago
