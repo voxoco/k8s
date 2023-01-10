@@ -23,7 +23,7 @@ metadata:
   name: omnia-api-mcs
   namespace: production
   annotations:
-    beta.cloud.google.com/backend-config: '{"ports": {"3031":"socket-api"}}'
+    cloud.google.com/backend-config: '{"ports": {"3031":"socket-api", "3030":"api"}}'
 spec:
   template:
     spec:

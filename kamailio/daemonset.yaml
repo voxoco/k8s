@@ -120,6 +120,8 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
+            - name: NQLITE
+              value: http://nqlite:4001/db/query
           volumeMounts:
             - name: config
               mountPath: /etc/kamailio/kv

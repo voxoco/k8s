@@ -33,6 +33,8 @@ spec:
             - name: google-service-account
               mountPath: /var/secrets/google
           env:
+            - name: NQLITE
+              value: http://nqlite:4001/db/query
             - name: TZ
               value: America/Chicago
             - name: GOOGLE_APPLICATION_CREDENTIALS

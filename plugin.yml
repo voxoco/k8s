@@ -1,8 +1,8 @@
 plugin:
-  # Defines a plugin to provide a `ctrl-k` shortcut to kill the selected container in a pod.
+  # Defines a plugin to provide a `ctrl-d` shortcut to kill the selected container in a pod.
   kill:
     # Define a mnemonic to invoke the plugin
-    shortCut: Ctrl-K
+    shortCut: Ctrl-D
     # What will be shown on the K9s menu
     description: Kill
     # Collections of views that support this shortcut. (You can use `all`)
@@ -14,6 +14,8 @@ plugin:
     background: false
     # Defines the command arguments
     args:
+    - --context
+    - $CONTEXT
     - -n
     - $NAMESPACE
     - exec

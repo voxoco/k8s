@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nqlite
+  namespace: production
+  labels:
+    app: nqlite
+spec:
+  selector:
+    matchLabels:
+      app: nqlite
+  template:
+    metadata:
+      name: nqlite
+      labels:
+        app: nqlite
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 2
+      containers:
+        - name: nqlite
+          image: voxo/nqlite:latest
+          args:
+            - --nats-host=nats://nats-svc:4222
+            - --token=$(TOKEN)
+          env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: nats-token
+                  key: key
+          ports:
+            - containerPort: 4001
+              name: http
+          imagePullPolicy: Always

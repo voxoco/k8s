@@ -11,6 +11,8 @@ data:
 
     jetstream: enabled
 
+    max_payload: 25MB
+
     websocket {
       port: 8080
       no_tls: true

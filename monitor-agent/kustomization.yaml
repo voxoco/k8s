@@ -1,4 +1,0 @@
-resources:
-  - deployment.yaml
-  - configmap.yaml
-  - kube-state-metrics.yaml

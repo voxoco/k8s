@@ -145,6 +145,8 @@ spec:
               name: cluster
             - containerPort: 8222
               name: monitor
+            - containerPort: 8080
+              name: ws
           command:
             - "nats-server"
             - "--config"

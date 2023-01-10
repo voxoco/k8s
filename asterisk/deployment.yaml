@@ -42,8 +42,8 @@ spec:
           emptyDir: {}
       initContainers:
         - name: init
-          image: ghcr.io/voxoco/asterisk:latest
-          command: ["bash", "-c", "mkdir -p /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/voicemail && touch /etc/asterisk/pjsip.d/test.conf"]
+          image: alpine:3.16
+          command: ["sh", "-c", "mkdir -p /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/voicemail && touch /etc/asterisk/pjsip.d/test.conf"]
           volumeMounts:
             - name: logs
               mountPath: /var/log/asterisk
@@ -58,6 +58,10 @@ spec:
             - containerPort: 4377
             - containerPort: 4573
           env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             - name: TZ
               value: America/Chicago
             - name: KAMHOST
@@ -125,6 +129,10 @@ spec:
             - name: metrics
               containerPort: 9102
           env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             - name: TZ
               value: America/Chicago
             - name: NATSSERVERS
@@ -157,6 +165,12 @@ spec:
               exec:
                 command: [ "/var/lib/asterisk/gracefulShutdown.sh" ]
           env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: NQLITE
+              value: $(NODE_IP):4001/db/query
             - name: TZ
               value: America/Chicago
             - name: MYSQL

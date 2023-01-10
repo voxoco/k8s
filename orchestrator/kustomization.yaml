@@ -1,3 +1,0 @@
-resources:
-  - statefulset.yaml
-  - service.yaml
