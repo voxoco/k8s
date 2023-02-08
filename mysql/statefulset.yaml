@@ -16,6 +16,8 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
       terminationGracePeriodSeconds: 20
       containers:
         - name: mysqld-exporter
@@ -111,7 +113,7 @@ spec:
             - --enforce-gtid-consistency=ON
           resources:
             requests:
-              cpu: 650m
+              cpu: 400m
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:

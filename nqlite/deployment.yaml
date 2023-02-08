@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: nqlite
   namespace: production
   labels:
     app: nqlite
 spec:
+  replicas: 3
   selector:
     matchLabels:
       app: nqlite
@@ -14,11 +15,9 @@ spec:
       name: nqlite
       labels:
         app: nqlite
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
-      nodeSelector:
-        cloud.google.com/gke-nodepool: default-pool
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       terminationGracePeriodSeconds: 2
       containers:
         - name: nqlite
@@ -35,4 +34,12 @@ spec:
           ports:
             - containerPort: 4001
               name: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 4001
           imagePullPolicy: Always

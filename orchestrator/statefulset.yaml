@@ -16,13 +16,14 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
-      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        cloud.google.com/gke-nodepool: external-sip
       containers:
         - name: orchestrator
           image: ghcr.io/voxoco/orchestrator:latest
           resources:
             requests:
-              cpu: 200m
+              cpu: 100m
           env:
             - name: CONSUL_HTTP_ADDR
               valueFrom:

@@ -6,7 +6,7 @@ metadata:
   labels:
     component: asterisk
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       component: asterisk
@@ -18,7 +18,7 @@ spec:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
       nodeSelector:
-        cloud.google.com/gke-nodepool: default-pool
+        cloud.google.com/gke-nodepool: internal-media
       terminationGracePeriodSeconds: 21600
       volumes:
         - name: google-service-account
@@ -33,9 +33,13 @@ spec:
             medium: Memory
             sizeLimit: "1Gi"
         - name: pbx
-          emptyDir: {}
+          emptyDir:
+            medium: Memory
+            sizeLimit: "3Gi"
         - name: spool
-          emptyDir: {}
+          emptyDir:
+            medium: Memory
+            sizeLimit: "3Gi"
         - name: tmp
           emptyDir: {}
         - name: logs
@@ -53,7 +57,7 @@ spec:
               mountPath: /etc/asterisk/pjsip.d
       containers:
         - name: asterisk-sidecar
-          image: ghcr.io/voxoco/asterisk-sidecar:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/asterisk-sidecar:latest
           ports:
             - containerPort: 4377
             - containerPort: 4573
@@ -124,7 +128,7 @@ spec:
               mountPath: /etc/asterisk/pjsip.d
           imagePullPolicy: Always
         - name: presence
-          image: ghcr.io/voxoco/presence:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/presence:latest
           ports:
             - name: metrics
               containerPort: 9102
@@ -154,10 +158,10 @@ spec:
                   key: connectionString
           imagePullPolicy: Always
         - name: asterisk
-          image: ghcr.io/voxoco/asterisk:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/asterisk:latest
           resources:
             requests:
-              cpu: 1000m
+              cpu: 2300m
           ports:
             - containerPort: 5080
           lifecycle:
@@ -165,12 +169,8 @@ spec:
               exec:
                 command: [ "/var/lib/asterisk/gracefulShutdown.sh" ]
           env:
-            - name: NODE_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
             - name: NQLITE
-              value: $(NODE_IP):4001/db/query
+              value: http://nqlite:4001/db/query
             - name: TZ
               value: America/Chicago
             - name: MYSQL
@@ -196,5 +196,9 @@ spec:
             - name: pjsip
               mountPath: /etc/asterisk/pjsip.d
           imagePullPolicy: Always
+          securityContext:
+            capabilities:
+              add:
+              - SYS_NICE
       imagePullSecrets:
         - name: regcred
