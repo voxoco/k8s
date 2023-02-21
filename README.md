@@ -14,13 +14,17 @@
 
 ## Overview
 
-[Slides](https://vibrant-easley-d0491e.netlify.app)
-
 [Demo video](https://www.youtube.com/watch?v=MZDJuwR31KI)
+
+[Astricon 2021 Slides](https://vibrant-easley-d0491e.netlify.app)
 
 [Astricon 2021 presentation](https://www.youtube.com/watch?v=vgOIIdYovZk&list=PLighc-2vlRgQTRb0PQCfFMDHuWjoUAKg4&index=3)
 
-[Interactive Diagram](https://isoflow.io/project/cknuw4pyddjjq0738cnikqcbv)
+[Astricon 2023 Slides](https://www.slideshare.net/JoeMordica1/astricon-2023-scaling-managing-realtime-communication-workloads-in-k8s)
+
+[Astricon 2023 presentation](https://youtu.be/_Ds06CDWE0g)
+
+[Interactive Diagram](https://isoflow.io/app/project/cknuw4pyddjjq0738cnikqcbv)
 
 ![Image](./Architecture.png)
 

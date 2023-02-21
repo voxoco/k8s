@@ -19,8 +19,9 @@ spec:
         cloud.google.com/gke-nodepool: external-rtp
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      terminationGracePeriodSeconds: 2700
+      terminationGracePeriodSeconds: 21600
       serviceAccountName: manager
+      shareProcessNamespace: true
       initContainers:
         - name: init
           image: ghcr.io/voxoco/kube-client:latest
@@ -65,7 +66,7 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: [ "sh", "/gracefulShutdown.sh" ]
+                command: [ "/bin/sh", "-c", "sleep infinity" ]
           env:
             - name: TZ
               value: America/Chicago
@@ -128,11 +129,18 @@ spec:
                 secretKeyRef:
                   name: consul-token
                   key: key
+          securityContext:
+            runAsUser: 0
+            privileged: true
           imagePullPolicy: Always
         - name: redis
           image: redis:alpine
           ports:
             - containerPort: 6379
+          lifecycle:
+            preStop:
+              exec:
+                command: [ "/bin/sh", "-c", "sleep infinity" ]
       volumes:
         - name: usr-modules
           hostPath:
