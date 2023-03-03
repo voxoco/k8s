@@ -15,7 +15,7 @@ spec:
       labels:
         component: asterisk
       annotations:
-        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
     spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: internal-media
@@ -161,7 +161,7 @@ spec:
           image: us-docker.pkg.dev/voxo-5060/voxoco/asterisk:latest
           resources:
             requests:
-              cpu: 2300m
+              cpu: 2500m
           ports:
             - containerPort: 5080
           lifecycle:
