@@ -113,6 +113,16 @@ spec:
                   key: key
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openai-api-key
+                  key: key
+            - name: R2_WORKER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: r2-worker-api-key
+                  key: key
           volumeMounts:
             - name: logs
               mountPath: /var/log/asterisk

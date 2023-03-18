@@ -16,10 +16,10 @@ spec:
       rules:
         - http:
             paths:
-            - path: /
+            - path: /v2/*
               backend:
-                serviceName: omnia-api-mcs
-                servicePort: 3030
+                serviceName: omnia-apiv2-mcs
+                servicePort: 3050
             - path: /socket.io/
               backend:
                 serviceName: omnia-api-mcs

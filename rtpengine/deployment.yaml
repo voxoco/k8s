@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: rtpengine
   namespace: production
   labels:
     component: rtpengine
 spec:
+  replicas: 1
   selector:
     matchLabels:
       component: rtpengine
@@ -14,6 +15,8 @@ spec:
       name: rtpengine
       labels:
         component: rtpengine
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
     spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: external-rtp
@@ -54,10 +57,10 @@ spec:
                   fieldPath: spec.nodeName
       containers:
         - name: rtpengine
-          image: ghcr.io/voxoco/rtpengine:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/rtpengine:latest
           resources:
             requests:
-              cpu: 2000m
+              cpu: 3000m
           ports:
             - name: metrics
               containerPort: 22223

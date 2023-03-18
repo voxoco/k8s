@@ -6,7 +6,7 @@ metadata:
   labels:
     component: proxysql
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       component: proxysql
@@ -17,6 +17,8 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
       terminationGracePeriodSeconds: 10
       containers:
         - name: proxysql
