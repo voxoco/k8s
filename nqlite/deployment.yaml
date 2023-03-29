@@ -27,11 +27,18 @@ spec:
           args:
             - --nats-host=nats://nats-svc:4222
             - --token=$(TOKEN)
+            - --external-backup=http
+            - --external-backup-url=https://r2-worker.voxo.workers.dev/r2/nqlite_backup/nqlite.db?apiKey=$(R2_WORKER_API_KEY)
           env:
             - name: TOKEN
               valueFrom:
                 secretKeyRef:
                   name: nats-token
+                  key: key
+            - name: R2_WORKER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: r2-worker-api-key
                   key: key
           ports:
             - containerPort: 4001
