@@ -60,6 +60,43 @@ spec:
               value: "3031"
             - name: NODE_ENV
               value: "production"
+            - name: GOOGLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: google-sso-key
+                  key: key
+            - name: GOOGLE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: google-sso-secret
+                  key: key
+            - name: GOOGLE_REDIRECT_URI
+              value: "https://api.voxo.co/custom-oauth/google/callback"
+            - name: UX_GOOGLE_REDIRECT_URI
+              value: "https://api.voxo.co/ux-custom-oauth/google/callback"
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-ad-key
+                  key: key
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: azure-ad-secret
+                  key: key
+            - name: AZURE_REDIRECT_URI
+              value: "https://api.voxo.co/custom-oauth/azure/authenticate"
+            - name: UX_AZURE_REDIRECT_URI
+              value: "https://api.voxo.co/ux-custom-oauth/azure/authenticate"
+            - name: OAUTH_REDIRECT
+              value: "https://app.voxo.co/login"
+            - name: EXPRESS_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: express-sso-session-secret
+                  key: key
+            - name: UX_OAUTH_REDIRECT
+              value: "https://cx.voxo.co"
           volumeMounts:
             - name: google-service-account
               mountPath: /var/secrets/google
