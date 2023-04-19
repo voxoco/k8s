@@ -4,7 +4,9 @@ metadata:
   name: webrtc-kamailio
   namespace: production
 spec:
-  timeoutSec: 1800
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+  timeoutSec: 40000000
   connectionDraining:
     drainingTimeoutSec: 1
 ---
@@ -14,14 +16,15 @@ metadata:
   name: socket-api
   namespace: production
 spec:
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
   healthCheck:
     port: 3030
     type: HTTP
     requestPath: /
-  timeoutSec: 1800
+  timeoutSec: 2592000
   connectionDraining:
-    drainingTimeoutSec: 2
----
+    drainingTimeoutSec: 10
 ---
 apiVersion: cloud.google.com/v1
 kind: BackendConfig

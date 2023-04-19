@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobs
+  namespace: production
+  labels:
+    component: jobs
+spec:
+  ports:
+    - name: http
+      port: 3121
+  selector:
+    component: jobs

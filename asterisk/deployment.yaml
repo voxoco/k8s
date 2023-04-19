@@ -123,6 +123,13 @@ spec:
                 secretKeyRef:
                   name: r2-worker-api-key
                   key: key
+            - name: JOBS_HTTP
+              value: http://jobs:3121
+            - name: DEEPGRAM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deepgram-api-key
+                  key: key
           volumeMounts:
             - name: logs
               mountPath: /var/log/asterisk
@@ -166,6 +173,9 @@ spec:
                 secretKeyRef:
                   name: gcloud-mysql-url
                   key: connectionString
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           imagePullPolicy: Always
         - name: asterisk
           image: us-docker.pkg.dev/voxo-5060/voxoco/asterisk:latest
