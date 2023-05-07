@@ -215,6 +215,10 @@ spec:
               mountPath: /tmp
             - name: pjsip
               mountPath: /etc/asterisk/pjsip.d
+          startupProbe:
+            httpGet:
+              path: /asterisk/ari/asterisk/ping?api_key=asterisk:asterisk
+              port: 8088
           imagePullPolicy: Always
           securityContext:
             capabilities:
