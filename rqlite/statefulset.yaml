@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rqlite
+  namespace: production
+spec:
+  serviceName: rqlite
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rqlite
+  template:
+    metadata:
+      labels:
+        app: rqlite
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: rqlite-config
+          configMap:
+            name: rqlite-config
+      containers:
+        - name: rqlite
+          image: rqlite/rqlite
+          args:
+            - -http-addr=0.0.0.0:4001
+            - -raft-addr=0.0.0.0:4002
+            - -http-adv-addr=$(PODIP):4001
+            - -raft-adv-addr=$(PODIP):4002
+            - -raft-snap=1024
+            - -node-id=$(PODIP):4002
+            - -write-queue-batch-size=1000
+            - -disco-mode=consul-kv
+            - -disco-config=/rqlite/config/consul.json
+            - -raft-reap-node-timeout=24h
+            - -raft-reap-read-only-node-timeout=24h
+            - -auto-backup=/rqlite/config/backup.json
+            - -auto-restore=/rqlite/config/restore.json
+            - -raft-cluster-remove-shutdown=true
+            - -on-disk
+            - -on-disk-startup
+            - -on-disk-path=/rqlite/data/rqlite.db
+          resources:
+            requests:
+              cpu: 200m
+          ports:
+            - containerPort: 4001
+              name: http
+          env:
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: CONSUL_HTTP_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: consul-address
+                  key: key
+            - name: CONSUL_HTTP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: consul-token
+                  key: key
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: r2
+                  key: accessKey
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: r2
+                  key: secretAccessKey
+          volumeMounts:
+            - name: rqlite-config
+              mountPath: /rqlite/config
+          readinessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /readyz
+              port: 4001
+            periodSeconds: 5
+            timeoutSeconds: 2
+            initialDelaySeconds: 2
+          livenessProbe:
+            httpGet:
+              scheme: HTTP
+              path: /readyz?noleader
+              port: 4001
+            initialDelaySeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 3
+          imagePullPolicy: Always
+          

@@ -33,9 +33,7 @@ spec:
             medium: Memory
             sizeLimit: "1Gi"
         - name: pbx
-          emptyDir:
-            medium: Memory
-            sizeLimit: "3Gi"
+          emptyDir: {}
         - name: spool
           emptyDir:
             medium: Memory

@@ -317,10 +317,10 @@ EOF
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=orc-0 --timeout=300s
 
-  # Deploy nqlite
-  kubectl apply -f nqlite
+  # Deploy rqlite
+  kubectl apply -f rqlite
   sleep 2
-  kubectl -n $NAMESPACE wait --for=condition=available deploy/nqlite --timeout=300s
+  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=rqlite-0 --timeout=300s
 
   # Deploy MySQL
   kubectl apply -f mysql
