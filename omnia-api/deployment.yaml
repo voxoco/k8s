@@ -89,14 +89,14 @@ spec:
             - name: UX_AZURE_REDIRECT_URI
               value: "https://api.voxo.co/ux-custom-oauth/azure/authenticate"
             - name: OAUTH_REDIRECT
-              value: "https://app.voxo.co/login"
+              value: "https://app.voxo.co/sso"
             - name: EXPRESS_SESSION_SECRET
               valueFrom:
                 secretKeyRef:
                   name: express-sso-session-secret
                   key: key
             - name: UX_OAUTH_REDIRECT
-              value: "https://cx.voxo.co"
+              value: "https://cx.voxo.co/sso"
           volumeMounts:
             - name: google-service-account
               mountPath: /var/secrets/google
