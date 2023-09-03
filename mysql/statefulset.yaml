@@ -111,6 +111,7 @@ spec:
             - --slave-net-timeout=4
             - --gtid-mode=ON
             - --enforce-gtid-consistency=ON
+            - --binlog-expire-logs-seconds=604800 # 7 days
           resources:
             requests:
               cpu: 400m

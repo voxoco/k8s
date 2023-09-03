@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-image
+  namespace: production
+  labels:
+    app: dev-image
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: dev-image
+  template:
+    metadata:
+      labels:
+        component: dev-image
+    spec:
+      containers:
+        - name: dev-image
+          image: us-docker.pkg.dev/voxo-5060/voxoco/dev-image:latest
+          command:
+            - "sleep"
+            - "604800"
+          imagePullPolicy: Always

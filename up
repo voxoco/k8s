@@ -337,6 +337,17 @@ metadata:
 type: Opaque
 stringData:
   key: $(gcloud secrets versions access latest --secret=deepgram-api-key | cut -d':' -f1)
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hono-session-secret
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=hono-session-secret | grep -m1 "")
 EOF
 }
 
@@ -394,11 +405,6 @@ EOF
   kubectl apply -f orchestrator
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=orc-0 --timeout=300s
-
-  # Deploy rqlite
-  kubectl apply -f rqlite
-  sleep 2
-  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=rqlite-0 --timeout=300s
 
   # Deploy MySQL
   kubectl apply -f mysql
