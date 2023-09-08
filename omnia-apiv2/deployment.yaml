@@ -31,6 +31,8 @@ spec:
           env:
             - name: TZ
               value: America/Chicago
+            - name: DENO_ENV
+              value: "production"
             - name: DEBUG
               value: "ON"
             - name: NATS_SERVERS
