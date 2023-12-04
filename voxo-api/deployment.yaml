@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voxo-api
+  namespace: production
+  labels:
+    component: voxo-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: voxo-api
+  template:
+    metadata:
+      labels:
+        component: voxo-api
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      volumes:
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
+      containers:
+        - name: voxo-api
+          image: ghcr.io/voxoco/voxo-api:latest
+          resources:
+            requests:
+              cpu: 500m
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: NODE_ENV
+              value: "production"
+            - name: DEBUG
+              value: "ON"
+            - name: NATS_SERVERS
+              value: "nats://nats-svc:4222"
+            - name: NATS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: nats-token
+                  key: key
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: API_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-auth-secret
+                  key: authSecret
+            - name: FASTIFY_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hono-session-secret
+                  key: key
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: regcred
