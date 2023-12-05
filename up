@@ -348,6 +348,18 @@ metadata:
 type: Opaque
 stringData:
   key: $(gcloud secrets versions access latest --secret=hono-session-secret | grep -m1 "")
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fastify-session-secret
+  namespace: production
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=fastify-session-secret)
+
 EOF
 }
 

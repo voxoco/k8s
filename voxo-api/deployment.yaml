@@ -54,7 +54,7 @@ spec:
             - name: FASTIFY_SESSION_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: hono-session-secret
+                  name: fastify-session-secret
                   key: key
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
