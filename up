@@ -354,8 +354,19 @@ stringData:
 apiVersion: v1
 kind: Secret
 metadata:
+  name: rtpagent-license
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=rtpagent-license | grep -m1 "")
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
   name: fastify-session-secret
-  namespace: production
+  namespace: $1
 type: Opaque
 stringData:
   key: $(gcloud secrets versions access latest --secret=fastify-session-secret)
@@ -412,16 +423,6 @@ EOF
     # Deploy MultiClusterService, MultiClusterIngress
     kubectl apply -f ingress
   fi
-
-  # Deploy orchestrator
-  kubectl apply -f orchestrator
-  sleep 2
-  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=orc-0 --timeout=300s
-
-  # Deploy MySQL
-  kubectl apply -f mysql
-  sleep 2
-  kubectl -n $NAMESPACE wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=mysql-0 --timeout=300s
 
   # Deploy Proxysql
   kubectl apply -f proxysql

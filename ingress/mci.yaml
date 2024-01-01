@@ -18,7 +18,7 @@ spec:
             paths:
             - path: /v2/*
               backend:
-                serviceName: omnia-apiv2-mcs
+                serviceName: voxo-api-mcs
                 servicePort: 3050
             - path: /socket.io/
               backend:

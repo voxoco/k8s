@@ -28,10 +28,6 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: "1Gi"
-        - name: pjsip
-          emptyDir:
-            medium: Memory
-            sizeLimit: "1Gi"
         - name: pbx
           emptyDir: {}
         - name: spool
@@ -45,14 +41,12 @@ spec:
       initContainers:
         - name: init
           image: alpine:3.16
-          command: ["sh", "-c", "mkdir -p /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/voicemail && touch /etc/asterisk/pjsip.d/test.conf"]
+          command: ["sh", "-c", "mkdir -p /var/log/asterisk/cel-custom /var/spool/asterisk/monitor /var/spool/asterisk/meetme /var/spool/asterisk/recording"]
           volumeMounts:
             - name: logs
               mountPath: /var/log/asterisk
             - name: spool
               mountPath: /var/spool/asterisk
-            - name: pjsip
-              mountPath: /etc/asterisk/pjsip.d
       containers:
         - name: asterisk-sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/asterisk-sidecar:latest
@@ -139,8 +133,6 @@ spec:
               mountPath: /tmp
             - name: google-service-account
               mountPath: /var/secrets/google
-            - name: pjsip
-              mountPath: /etc/asterisk/pjsip.d
           imagePullPolicy: Always
         - name: presence
           image: us-docker.pkg.dev/voxo-5060/voxoco/presence:latest
@@ -211,8 +203,6 @@ spec:
               mountPath: /var/spool/asterisk
             - name: tmp
               mountPath: /tmp
-            - name: pjsip
-              mountPath: /etc/asterisk/pjsip.d
           startupProbe:
             httpGet:
               path: /asterisk/ari/asterisk/ping?api_key=asterisk:asterisk

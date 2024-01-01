@@ -55,3 +55,22 @@ spec:
         - name: rest
           protocol: TCP
           port: 3050
+
+---
+
+apiVersion: networking.gke.io/v1
+kind: MultiClusterService
+metadata:
+  name: voxo-api-mcs
+  namespace: production
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"3050":"voxo-api"}}'
+spec:
+  template:
+    spec:
+      selector:
+        component: voxo-api
+      ports:
+        - name: rest
+          protocol: TCP
+          port: 3050

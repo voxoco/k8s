@@ -45,3 +45,14 @@ metadata:
 spec:
   securityPolicy:
     name: "main"
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: voxo-api
+  namespace: production
+spec:
+  healthCheck:
+    port: 3050
+    type: HTTP
+    requestPath: /v2

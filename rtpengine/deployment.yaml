@@ -75,8 +75,6 @@ spec:
               value: America/Chicago
             - name: CLOUD
               value: gcp
-            - name: HOMER
-              value: 10.142.15.196:9060
           volumeMounts:
             - name: usr-modules
               mountPath: /usr/lib/modules
@@ -89,6 +87,32 @@ spec:
             privileged: true
             capabilities:
               add: [ "NET_ADMIN" ]
+          imagePullPolicy: Always
+        - name: rtpagent
+          image: us-docker.pkg.dev/voxo-5060/voxoco/rtpagent:latest
+          env:
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: LICENSE
+              valueFrom:
+                secretKeyRef:
+                  name: rtpagent-license
+                  key: key
+            - name: HEPIC_HOST
+              value: "10.142.15.196"
+            - name: HEPIC_PROTO
+              value: "udp"
+            - name: HEPIC_PORT
+              value: "9060"
+            - name: USE_NGCP
+              value: "true"
+            - name: NGCP_PORT
+              value: "22222"
+            - name: BOTH_IP_MATCH
+              value: "false"
           imagePullPolicy: Always
         - name: rtpengine-sidecar
           image: ghcr.io/voxoco/rtpengine-sidecar:latest

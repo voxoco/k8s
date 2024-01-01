@@ -133,8 +133,10 @@ spec:
           image: sipcapture/heplify:latest
           command:
             - "./heplify"
-            - "-hn"
-            - "$(REGION)"
+            - "-hi"
+            - "$(SERVERID)"
+            - "-t"
+            - "af_packet"
             - "-hs"
             - "10.142.15.196:9060"
             - "-tcpassembly"
@@ -147,11 +149,11 @@ spec:
             - "-dim"
             - "OPTIONS,NOTIFY,KDMQ,REGISTER,SUBSCRIBE,PUBLISH,UPDATE"
           env:
-            - name: REGION
+            - name: SERVERID
               valueFrom:
                 configMapKeyRef:
                   name: cluster-details
-                  key: clusterName
+                  key: serverId
           imagePullPolicy: Always
         - name: kamailio
           image: ghcr.io/voxoco/kamailio:latest
