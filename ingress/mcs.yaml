@@ -42,25 +42,6 @@ spec:
 apiVersion: networking.gke.io/v1
 kind: MultiClusterService
 metadata:
-  name: omnia-apiv2-mcs
-  namespace: production
-  annotations:
-    cloud.google.com/backend-config: '{"ports": {"3050":"omnia-apiv2"}}'
-spec:
-  template:
-    spec:
-      selector:
-        component: omnia-apiv2
-      ports:
-        - name: rest
-          protocol: TCP
-          port: 3050
-
----
-
-apiVersion: networking.gke.io/v1
-kind: MultiClusterService
-metadata:
   name: voxo-api-mcs
   namespace: production
   annotations:
