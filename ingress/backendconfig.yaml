@@ -29,17 +29,6 @@ spec:
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
 metadata:
-  name: omnia-apiv2
-  namespace: production
-spec:
-  healthCheck:
-    port: 3050
-    type: HTTP
-    requestPath: /v2
----
-apiVersion: cloud.google.com/v1
-kind: BackendConfig
-metadata:
   name: api
   namespace: production
 spec:

@@ -435,6 +435,7 @@ EOF
   kubectl -n $NAMESPACE wait --for=condition=available deploy/jobs --timeout=300s
 
   kubectl apply -f omnia-api
+  kubectl apply -f voxo-api
 
   kubectl apply -f rtpengine
   sleep 10

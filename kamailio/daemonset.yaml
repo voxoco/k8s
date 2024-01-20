@@ -120,40 +120,12 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
-            - name: NQLITE
-              value: http://nqlite:4001/db/query
           volumeMounts:
             - name: config
               mountPath: /etc/kamailio/kv
           ports:
             - name: metrics
               containerPort: 9105
-          imagePullPolicy: Always
-        - name: heplify
-          image: sipcapture/heplify:latest
-          command:
-            - "./heplify"
-            - "-hi"
-            - "$(SERVERID)"
-            - "-t"
-            - "af_packet"
-            - "-hs"
-            - "10.142.15.196:9060"
-            - "-tcpassembly"
-            - "true"
-            - "-pr"
-            - "5060-5061"
-            - "-m"
-            - "SIP"
-            - "-e"
-            - "-dim"
-            - "OPTIONS,NOTIFY,KDMQ,REGISTER,SUBSCRIBE,PUBLISH,UPDATE"
-          env:
-            - name: SERVERID
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: serverId
           imagePullPolicy: Always
         - name: kamailio
           image: ghcr.io/voxoco/kamailio:latest
