@@ -24,14 +24,12 @@ spec:
       serviceAccount: manager
       containers:
         - name: grafana-agent
-          image: grafana/agent:v0.31.3
+          image: grafana/agent:v0.39.1
           args:
             - -config.file=/etc/agent/agent.yaml
             - -enable-features=integrations-next
             - -server.http.address=0.0.0.0:80
             - -config.expand-env
-          command:
-            - /bin/agent
           ports:
           - containerPort: 80
             name: http-metrics

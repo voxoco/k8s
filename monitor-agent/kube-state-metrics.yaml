@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kube-state-metrics
-    app.kubernetes.io/version: 2.4.2
+    app.kubernetes.io/version: 2.7.0
   name: kube-state-metrics
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -21,7 +21,7 @@ metadata:
   labels:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kube-state-metrics
-    app.kubernetes.io/version: 2.4.2
+    app.kubernetes.io/version: 2.7.0
   name: kube-state-metrics
 rules:
 - apiGroups:
@@ -132,7 +132,7 @@ metadata:
   labels:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kube-state-metrics
-    app.kubernetes.io/version: 2.4.2
+    app.kubernetes.io/version: 2.7.0
   name: kube-state-metrics
   namespace: kube-system
 ---
@@ -142,7 +142,7 @@ metadata:
   labels:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kube-state-metrics
-    app.kubernetes.io/version: 2.4.2
+    app.kubernetes.io/version: 2.7.0
   name: kube-state-metrics
   namespace: kube-system
 spec:
@@ -163,7 +163,7 @@ metadata:
   labels:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: kube-state-metrics
-    app.kubernetes.io/version: 2.4.2
+    app.kubernetes.io/version: 2.7.0
   name: kube-state-metrics
   namespace: kube-system
 spec:
@@ -176,11 +176,15 @@ spec:
       labels:
         app.kubernetes.io/component: exporter
         app.kubernetes.io/name: kube-state-metrics
-        app.kubernetes.io/version: 2.4.2
+        app.kubernetes.io/version: 2.7.0
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
       automountServiceAccountToken: true
       containers:
-      - image: k8s.gcr.io/kube-state-metrics/kube-state-metrics:v2.4.2
+      - image: k8s.gcr.io/kube-state-metrics/kube-state-metrics:v2.7.0
         args:
           - --namespaces=production
         livenessProbe:
@@ -208,6 +212,4 @@ spec:
             - ALL
           readOnlyRootFilesystem: true
           runAsUser: 65534
-      nodeSelector:
-        kubernetes.io/os: linux
       serviceAccountName: kube-state-metrics
