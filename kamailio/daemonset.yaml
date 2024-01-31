@@ -137,6 +137,11 @@ spec:
               protocol: TCP
               containerPort: 8080
           env:
+            - name: NATSTOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: nats-token
+                  key: key
             - name: REGION
               valueFrom:
                 configMapKeyRef:
