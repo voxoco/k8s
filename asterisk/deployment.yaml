@@ -48,6 +48,35 @@ spec:
             - name: spool
               mountPath: /var/spool/asterisk
       containers:
+        - name: sidecar
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:pr-11
+          command: ["node", "asterisk-sidecar/main.js"]
+          ports:
+            - name: metrics
+              containerPort: 3000
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: NODE_ENV
+              value: production
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: SERVERID
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: serverId
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+            - name: tmp
+              mountPath: /tmp
+          imagePullPolicy: Always
         - name: asterisk-sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/asterisk-sidecar:latest
           ports:

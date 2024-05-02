@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: voxo-api
+  namespace: production
+  labels:
+    component: voxo-api
+spec:
+  ports:
+    - name: http
+      port: 3050
+  selector:
+    component: voxo-api

@@ -27,11 +27,11 @@ spec:
       shareProcessNamespace: true
       initContainers:
         - name: init
-          image: ghcr.io/voxoco/kube-client:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
           volumeMounts:
             - name: google-service-account
               mountPath: /var/secrets/google
-          command: ["node", "index.js"]
+          command: ["node", "kube-client/main.js"]
           args:
             - --assign-external-ip=true
             - --region=$(REGION)
@@ -39,6 +39,13 @@ spec:
             - --node-name=$(NODE_NAME)
             - --type=rtp
           env:
+            - name: NODE_ENV
+              value: production
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
             - name: REGION
@@ -82,54 +89,34 @@ spec:
               mountPath: /lib/modules
             - name: src
               mountPath: /usr/src
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: 22223
           securityContext:
             runAsUser: 0
             privileged: true
             capabilities:
               add: [ "NET_ADMIN" ]
           imagePullPolicy: Always
-        - name: rtpengine-sidecar
-          image: ghcr.io/voxoco/rtpengine-sidecar:latest
+        - name: sidecar
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
+          command: ["node", "rtpengine-sidecar/main.js"]
           ports:
             - containerPort: 42187
           env:
-            - name: TZ
-              value: America/Chicago
-            - name: KAMSERVERID
+            - name: NODE_ENV
+              value: production
+            - name: SERVERID
               valueFrom:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
-            - name: NATSSERVERS
-              value: "nats://nats-svc:4222"
-            - name: NATSTOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: nats-token
-                  key: key
             - name: MYSQL
               valueFrom:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
-            - name: PODIP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: PODNAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: CONSUL_HTTP_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: consul-address
-                  key: key
-            - name: CONSUL_HTTP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: consul-token
-                  key: key
           securityContext:
             runAsUser: 0
             privileged: true

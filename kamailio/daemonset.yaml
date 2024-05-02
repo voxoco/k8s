@@ -23,13 +23,13 @@ spec:
       serviceAccountName: manager
       initContainers:
         - name: init
-          image: ghcr.io/voxoco/kube-client:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
           volumeMounts:
             - name: config
               mountPath: /etc/kamailio/kv
             - name: google-service-account
               mountPath: /var/secrets/google
-          command: ["node", "index.js"]
+          command: ["node", "kube-client/main.js"]
           args:
             - --assign-external-ip=true
             - --region=$(REGION)
@@ -38,21 +38,18 @@ spec:
             - --type=sip
             - --kamailio-consul=1
           env:
+            - name: NODE_ENV
+              value: production
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
-            - name: CONSUL_HTTP_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: consul-address
-                  key: key
-            - name: CONSUL_HTTP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: consul-token
-                  key: key
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
             - name: REGION
@@ -70,51 +67,17 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
       containers:
-        - name: kamailio-sidecar
-          image: ghcr.io/voxoco/kamailio-sidecar:latest
+        - name: sidecar
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
+          command: ["node", "kamailio-sidecar/main.js"]
           env:
-            - name: CONSUL_HTTP_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: consul-address
-                  key: key
-            - name: CONSUL_HTTP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: consul-token
-                  key: key
-            - name: APIBANKEY
-              valueFrom:
-                secretKeyRef:
-                  name: apiban-key
-                  key: key
-            - name: TZ
-              value: America/Chicago
-            - name: NATSSERVERS
-              value: "nats://nats-svc:4222"
-            - name: NATSTOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: nats-token
-                  key: key
+            - name: NODE_ENV
+              value: production
             - name: MYSQL
               valueFrom:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
-            - name: PODNAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: PODIP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: REGION
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: clusterName
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:
@@ -125,7 +88,7 @@ spec:
               mountPath: /etc/kamailio/kv
           ports:
             - name: metrics
-              containerPort: 9105
+              containerPort: 3000
           imagePullPolicy: Always
         - name: kamailio
           image: ghcr.io/voxoco/kamailio:latest

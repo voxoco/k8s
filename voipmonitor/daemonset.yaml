@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: voipmonitor-rtp
+  namespace: production
+  labels:
+    component: voipmonitor-rtp
+spec:
+  selector:
+    matchLabels:
+      component: voipmonitor-rtp
+  template:
+    metadata:
+      name: voipmonitor-rtp
+      labels:
+        component: voipmonitor-rtp
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: external-rtp
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 2
+      serviceAccountName: manager
+      containers:
+        - name: voipmonitor
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voipmonitor:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+            capabilities:
+              add: [ "NET_ADMIN" ]
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: voipmonitor-sip
+  namespace: production
+  labels:
+    component: voipmonitor-sip
+spec:
+  selector:
+    matchLabels:
+      component: voipmonitor-sip
+  template:
+    metadata:
+      name: voipmonitor-sip
+      labels:
+        component: voipmonitor-sip
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: external-sip
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 2
+      serviceAccountName: manager
+      containers:
+        - name: voipmonitor
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voipmonitor:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+            capabilities:
+              add: [ "NET_ADMIN" ]
+      imagePullSecrets:
+        - name: regcred
