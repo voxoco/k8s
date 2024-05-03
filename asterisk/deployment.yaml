@@ -49,7 +49,7 @@ spec:
               mountPath: /var/spool/asterisk
       containers:
         - name: sidecar
-          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:pr-11
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
           command: ["node", "asterisk-sidecar/main.js"]
           ports:
             - name: metrics
