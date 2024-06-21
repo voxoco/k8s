@@ -76,6 +76,10 @@ spec:
               mountPath: /var/secrets/google
             - name: tmp
               mountPath: /tmp
+            - name: pbx
+              mountPath: /var/lib/asterisk/sounds/pbx
+            - name: spool
+              mountPath: /var/spool/asterisk
           imagePullPolicy: Always
         - name: asterisk-sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/asterisk-sidecar:latest

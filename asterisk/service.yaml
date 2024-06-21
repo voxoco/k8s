@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: asterisk
+  namespace: production
+  labels:
+    component: asterisk
+spec:
+  ports:
+    - name: http
+      port: 3000
+  selector:
+    component: asterisk

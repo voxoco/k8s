@@ -1,84 +1,53 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: grafana-agent
+  name: prometheus-gke
   namespace: production
   annotations:
     prometheus.io/port: '9102'
   labels:
-    component: grafana-agent
+    component: prometheus-gke
 spec:
   replicas: 1
   selector:
     matchLabels:
-      component: grafana-agent
+      component: prometheus-gke
   template:
     metadata:
       labels:
-        component: grafana-agent
+        component: prometheus-gke
     spec:
       volumes:
         - name: config
           configMap:
-            name: grafana-agent
+            name: prometheus-gke
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
       serviceAccount: manager
       containers:
-        - name: grafana-agent
-          image: grafana/agent:v0.39.1
+        - name: prometheus-gke
+          image: gke.gcr.io/prometheus-engine/prometheus:v2.41.0-gmp.5-gke.0
           args:
-            - -config.file=/etc/agent/agent.yaml
-            - -enable-features=integrations-next
-            - -server.http.address=0.0.0.0:80
-            - -config.expand-env
+            - --config.file=/etc/prometheus/config.yaml
+            - --export.credentials-file=/gmp/key.json
+            - --storage.tsdb.path=/prometheus/data
+            - --storage.tsdb.retention.time=6h
+            - --web.enable-lifecycle
+            - --storage.tsdb.no-lockfile
+            - --web.route-prefix=/
           ports:
-          - containerPort: 80
-            name: http-metrics
+          - name: web
+            containerPort: 9090
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: web
+              scheme: HTTP
           volumeMounts:
-            - mountPath: /etc/agent
+            - mountPath: /etc/prometheus
               name: config
-          env:
-            - name: USER
-              value: '81451'
-            - name: PASS
-              valueFrom:
-                secretKeyRef:
-                  name: prometheus-password
-                  key: key
-            - name: URL
-              value: https://prometheus-blocks-prod-us-central1.grafana.net/api/prom/push
-            - name: LOGSURL
-              value: https://logs-prod-us-central1.grafana.net/loki/api/v1/push
-            - name: LOGSUSER
-              value: '39701'
-            - name: LOGSPASS
-              valueFrom:
-                secretKeyRef:
-                  name: loki-password
-                  key: key
-            - name: NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: clusterName
-            - name: HOSTNAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
+              readOnly: true
+            - name: google-service-account
+              mountPath: /gmp
           imagePullPolicy: Always
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    name: grafana-agent
-  name: grafana-agent
-  namespace: production
-spec:
-  clusterIP: None
-  ports:
-  - name: grafana-agent-http-metrics
-    port: 80
-    targetPort: 80
-  selector:
-    name: grafana-agent

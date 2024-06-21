@@ -41,6 +41,7 @@ metadata:
   name: voxo-api
   namespace: production
 spec:
+  timeoutSec: 25200
   healthCheck:
     port: 3050
     type: HTTP
