@@ -14,8 +14,6 @@ spec:
     metadata:
       labels:
         component: asterisk
-      annotations:
-        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
     spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: internal-media
