@@ -25,7 +25,7 @@ spec:
     kind: Deployment
     name: ast
   minReplicas: 2
-  maxReplicas: 10
+  maxReplicas: 20
   metrics:
   - type: Resource
     resource:

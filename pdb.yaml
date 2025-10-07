@@ -91,3 +91,19 @@ spec:
   selector:
     matchLabels:
       k8s-app: metrics-server
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  annotations:
+  labels:
+    k8s-app: antrea-controller-autoscaler
+  name: kube-ant-autoscaler
+  namespace: kube-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      k8s-app: antrea-controller-autoscaler

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kam-redis
+  namespace: production
+  labels:
+    component: kam-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: kam-redis
+  template:
+    metadata:
+      labels:
+        component: kam-redis
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: external-sip
+      containers:
+        - name: kam-redis
+          image: redis:latest
+          ports:
+          - containerPort: 6379
+          resources:
+            requests:
+              cpu: 300m
+          env:
+            - name: TZ
+              value: America/Chicago
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kam-redis
+  namespace: production
+  labels:
+    component: kam-redis
+spec:
+  ports:
+    - name: kam-redis
+      port: 6379
+  selector:
+    component: kam-redis

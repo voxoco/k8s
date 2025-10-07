@@ -91,7 +91,7 @@ spec:
               containerPort: 3000
           imagePullPolicy: Always
         - name: kamailio
-          image: ghcr.io/voxoco/kamailio:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/kamailio:latest
           resources:
             requests:
               cpu: 2300m
@@ -130,7 +130,13 @@ spec:
               value: "4"
             - name: CLOUD
               value: gcp
+            - name: LB_IPV4
+              value: "34.117.222.234"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
           volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
             - name: config
               mountPath: /etc/kamailio/kv
           securityContext:

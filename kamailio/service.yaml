@@ -3,7 +3,14 @@ kind: Service
 metadata:
   name: kamailio
   namespace: production
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports": {"5065":{}}}'
 spec:
   clusterIP: None
   selector:
     component: kamailio
+  ports:
+    - protocol: TCP
+      name: lbtcp
+      port: 5065
+      targetPort: 5065

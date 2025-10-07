@@ -16,6 +16,15 @@ spec:
         - name: webrtc
           protocol: TCP
           port: 8080
+          targetPort: 8080
+        - name: tcp
+          protocol: TCP
+          port: 5065
+          targetPort: 5065
+  clusters:
+  - link: "us-central1-b/us-central1"
+  - link: "us-east1-b/us-east1"
+  - link: "us-south1-b/us-south1"
 ---
 apiVersion: networking.gke.io/v1
 kind: MultiClusterService
@@ -36,6 +45,10 @@ spec:
         - name: socket
           protocol: TCP
           port: 3031
+  clusters:
+  - link: "us-central1-b/us-central1"
+  - link: "us-east1-b/us-east1"
+  - link: "us-south1-b/us-south1"
 
 ---
 
@@ -55,3 +68,7 @@ spec:
         - name: rest
           protocol: TCP
           port: 3050
+  clusters:
+  - link: "us-central1-b/us-central1"
+  - link: "us-east1-b/us-east1"
+  - link: "us-south1-b/us-south1"

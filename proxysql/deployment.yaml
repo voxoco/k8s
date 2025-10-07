@@ -17,8 +17,6 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "true"
     spec:
-      nodeSelector:
-        cloud.google.com/gke-nodepool: default-pool
       terminationGracePeriodSeconds: 10
       containers:
         - name: proxysql
@@ -62,5 +60,15 @@ spec:
             exec:
               command: ["cat", "/ready.txt"]
           imagePullPolicy: Always
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-nodepool
+                operator: In
+                values:
+                - external-rtp
+                - external-sip
       imagePullSecrets:
         - name: regcred

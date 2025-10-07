@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kam-internal
+  namespace: production
+  labels:
+    component: kam-internal
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      component: kam-internal
+  template:
+    metadata:
+      labels:
+        component: kam-internal
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      volumes:
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
+      containers:
+        - name: sidecar
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
+          command: ["node", "kamailio-internal-sidecar/main.js"]
+          ports:
+            - name: metrics
+              containerPort: 3000
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: NODE_ENV
+              value: production
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: SERVERIDENV
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: serverId
+            - name: SERVERID
+              value: "6$(SERVERIDENV)"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+          imagePullPolicy: Always
+        - name: kam-internal
+          image: us-docker.pkg.dev/voxo-5060/voxoco/kamailio-internal:latest
+          resources:
+            requests:
+              cpu: 1000m
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PROXYIP
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: proxyIp
+            - name: PODIP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: TZ
+              value: America/Chicago
+            - name: PODNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SERVERIDENV
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: serverId
+            - name: SERVERID
+              value: "6$(SERVERIDENV)"
+            - name: DISPATCHMODE
+              value: "1"
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kam-internal
+  namespace: production
+  labels:
+    component: kam-internal
+spec:
+  selector:
+    component: kam-internal
+  clusterIP: None
