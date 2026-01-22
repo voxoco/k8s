@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pharmacy-assistant
+  namespace: production
+  labels:
+    component: pharmacy-assistant
+spec:
+  ports:
+    - name: http
+      port: 8000
+  selector:
+    component: pharmacy-assistant

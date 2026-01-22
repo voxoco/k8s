@@ -6,7 +6,7 @@ metadata:
   labels:
     component: asterisk
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       component: asterisk
@@ -14,6 +14,8 @@ spec:
     metadata:
       labels:
         component: asterisk
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
     spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: internal-media
@@ -29,9 +31,7 @@ spec:
         - name: pbx
           emptyDir: {}
         - name: spool
-          emptyDir:
-            medium: Memory
-            sizeLimit: "3Gi"
+          emptyDir: {}
         - name: tmp
           emptyDir: {}
         - name: logs
@@ -48,25 +48,36 @@ spec:
       containers:
         - name: sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
-          command: ["node", "asterisk-sidecar/main.js"]
           ports:
             - name: metrics
               containerPort: 3000
           env:
+            - name: SERVICE
+              value: asterisk
             - name: TZ
               value: America/Chicago
             - name: NODE_ENV
               value: production
-            - name: MYSQL
+            - name: MYSQL_PRIMARY_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-url
-                  key: connectionString
+                  name: mysql-primary-url
+                  key: key
+            - name: MYSQL_READER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-reader-url
+                  key: key
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
           volumeMounts:

@@ -28,22 +28,20 @@ spec:
               containerPort: 6070
           resources:
             requests:
-              cpu: 100m
+              cpu: 50m
         - name: sidecar
           image: ghcr.io/voxoco/orchestrator-sidecar:latest
           command: ["/bin/sh", "/proxysql.sh"]
           env:
-            - name: CONSUL_HTTP_SSL
-              value: "true"
-            - name: CONSUL_HTTP_ADDR
+            - name: MYSQL_PRIMARY_URL
               valueFrom:
                 secretKeyRef:
-                  name: consul-address
+                  name: mysql-primary-url
                   key: key
-            - name: CONSUL_HTTP_TOKEN
+            - name: MYSQL_READER_URL
               valueFrom:
                 secretKeyRef:
-                  name: consul-token
+                  name: mysql-reader-url
                   key: key
             - name: DEBUG
               value: "0"

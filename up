@@ -1,27 +1,13 @@
 #!/bin/bash
 # Assumes gcloud and kubectl is already installed
 # THE CLUSTER NAME WILL BE THE NAME OF THE REGION AND CLUSTER ITSELF
-
-displayHelp() {
-  echo "Usage: $0 [option...]" >&2
-  echo
-  echo "   -p, --project-id         Your google cloud project ID (optional - defaults to current project)"
-  echo "   -r, --region             Specify the region to deploy the cluster. (optional - default is us-east1)"
-  echo "   -m, --machine-type       Specify the machine type (optional - default is c2-standard-4)"
-  echo "   -q, --quiet              Specify the quiet flag for non-interacive (optional - default interactive mode)"
-  echo
-  echo "   Example:"
-  echo "   New cluster:             $0 -p my-project -r us-central1 -m n1-standard-2"
-  echo "   Interactive mode: $0"
-  echo
-  exit 1
-}
+# THE NAMESPACE WILL BE "production"
 
 addFirewallRules() {
   FIREWALL_SIP_EXISTS=$(gcloud compute firewall-rules list --format=json | grep "external-sip")
   if [ -z "$FIREWALL_SIP_EXISTS" ]; then
     echo "Creating external-sip firewall rule"
-    gcloud compute firewall-rules create "external-sip" --allow=tcp:5060,udp:5060 --description="Allow SIP related traffic" --direction=INGRESS --source-ranges="0.0.0.0/0" --target-tags="external-sip"
+    gcloud compute firewall-rules create "external-sip" --allow=tcp:5060,tcp:5061,udp:5060 --description="Allow SIP related traffic" --direction=INGRESS --source-ranges="0.0.0.0/0" --target-tags="external-sip"
   else
     echo "external-sip firewall rule already exists"
   fi
@@ -29,7 +15,7 @@ addFirewallRules() {
   FIREWALL_RTP_EXISTS=$(gcloud compute firewall-rules list --format=json | grep "external-rtp")
   if [ -z "$FIREWALL_RTP_EXISTS" ]; then
     echo "Creating external-rtp firewall rule"
-    gcloud compute firewall-rules create "external-rtp" --allow=udp:10000-60000 --description="Allow RTP related traffic" --direction=INGRESS --source-ranges="0.0.0.0/0" --target-tags="external-rtp"
+    gcloud compute firewall-rules create "external-rtp" --allow=udp:10000-60000 --description="Allow RTP related traffic" --direction=INGRESS --source-ranges="0.0.0.0/0" --target-tags="external-rtp,internal-media,freeswitch"
   else
     echo "external-rtp firewall rule already exists"
   fi
@@ -60,13 +46,15 @@ createCluster() {
   kubectl config delete-context $REGION
 
   # Create the cluster
-  gcloud beta container --project "$PROJECT_ID" clusters create "$REGION" --zone "$ZONE" --no-enable-basic-auth --cluster-version "1.29" --release-channel "None" --machine-type "$MACHINE_TYPE" --image-type "COS_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --tags "worker,$REGION" --max-pods-per-node "110" --num-nodes "3" --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM --enable-ip-alias --network "projects/$PROJECT_ID/global/networks/default" --subnetwork "projects/$PROJECT_ID/regions/$REGION/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --enable-autoscaling --min-nodes "3" --max-nodes "10" --enable-dataplane-v2 --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --autoscaling-profile optimize-utilization --workload-pool "$PROJECT_ID.svc.id.goog" --maintenance-window-start "2023-02-19T04:00:00Z" --maintenance-window-end "2023-02-19T08:00:00Z" --maintenance-window-recurrence "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU" --enable-shielded-nodes --node-locations "$ZONE" --cluster-dns clouddns --cluster-dns-scope vpc --cluster-dns-domain $REGION
+  gcloud beta container --project "$PROJECT_ID" clusters create "$REGION" --zone "$ZONE" --tier "standard" --no-enable-basic-auth --cluster-version "1.32" --release-channel "None" --machine-type "$DEFAULT_POOL_MACHINE_TYPE" --image-type "COS_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --tags "worker,$REGION" --max-pods-per-node "110" --num-nodes "3" --logging=SYSTEM,WORKLOAD --monitoring=SYSTEM --enable-ip-alias --network "projects/$PROJECT_ID/global/networks/default" --subnetwork "projects/$PROJECT_ID/regions/$REGION/subnetworks/default" --no-enable-intra-node-visibility --default-max-pods-per-node "110" --enable-autoscaling --min-nodes "3" --max-nodes "10" --enable-dataplane-v2 --no-enable-managed-prometheus --no-enable-master-authorized-networks --addons HorizontalPodAutoscaling,HttpLoadBalancing,GcePersistentDiskCsiDriver --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --autoscaling-profile optimize-utilization --workload-pool "$PROJECT_ID.svc.id.goog" --maintenance-window-start "2023-02-19T04:00:00Z" --maintenance-window-end "2023-02-19T08:00:00Z" --maintenance-window-recurrence "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU" --enable-shielded-nodes --node-locations "$ZONE" --cluster-dns clouddns --cluster-dns-scope vpc --cluster-dns-domain $REGION
   # Add the external-rtp node pool to the cluster
-  gcloud beta container --project "$PROJECT_ID" node-pools create "external-rtp" --cluster "$REGION" --zone "$ZONE" --machine-type "$MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "external-rtp,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "2" --node-locations "$ZONE"
+  gcloud beta container --project "$PROJECT_ID" node-pools create "external-rtp" --cluster "$REGION" --zone "$ZONE" --machine-type "$EXTERNAL_RTP_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "external-rtp,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "2" --node-locations "$ZONE"
   # Add the external-sip node pool to the cluster
-  gcloud beta container --project "$PROJECT_ID" node-pools create "external-sip" --cluster "$REGION" --zone "$ZONE" --machine-type "$MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "external-sip,$REGION" --node-locations "$ZONE"
+  gcloud beta container --project "$PROJECT_ID" node-pools create "external-sip" --cluster "$REGION" --zone "$ZONE" --machine-type "$EXTERNAL_SIP_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "external-sip,$REGION" --node-locations "$ZONE"
   # Add the internal-media node pool to the cluster
-  gcloud beta container --project "$PROJECT_ID" node-pools create "internal-media" --cluster "$REGION" --zone "$ZONE" --machine-type "$MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "internal-media,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "10" --node-locations "$ZONE"
+  gcloud beta container --project "$PROJECT_ID" node-pools create "internal-media" --cluster "$REGION" --zone "$ZONE" --machine-type "$INTERNAL_MEDIA_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "internal-media,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "30" --node-locations "$ZONE"
+  # Add the freeswitch node pool to the cluster
+  gcloud beta container --project "$PROJECT_ID" node-pools create "freeswitch" --cluster "$REGION" --zone "$ZONE" --machine-type "$FS_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "freeswitch,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "30" --node-locations "$ZONE"
 
   # Create GKE Multi Cluster Service stuff
   gcloud services enable gkehub.googleapis.com multiclusterservicediscovery.googleapis.com dns.googleapis.com trafficdirector.googleapis.com cloudresourcemanager.googleapis.com --project $PROJECT_ID
@@ -371,6 +359,39 @@ type: Opaque
 stringData:
   key: $(gcloud secrets versions access latest --secret=fastify-session-secret)
 
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-primary-url
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=mysql-primary-url | grep -m1 "")
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-reader-url
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=mysql-$REGION-reader-url | grep -m1 "")
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-primary-url
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=redis-primary-url | grep -m1 "")
+
 EOF
 }
 
@@ -388,6 +409,7 @@ deployResources() {
   SERVER_ID=\"$SUBNET\"
 
 # Create cluster-details ConfigMap
+PROXYIP=$(gcloud compute addresses list --filter="labels.type=sip AND region:$REGION" --format='value(address)' --limit=1)
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: ConfigMap
@@ -399,6 +421,7 @@ data:
   serverId: $SERVER_ID
   clusterName: $REGION
   zone: $ZONE
+  proxyIp: $PROXYIP
 EOF
 
   # Set kubeconfig
@@ -436,6 +459,7 @@ EOF
 
   kubectl apply -f omnia-api
   kubectl apply -f voxo-api
+  kubectl apply -f pharmacy-assistant
 
   kubectl apply -f rtpengine
   sleep 10
@@ -445,83 +469,65 @@ EOF
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/ast --timeout=300s
 
+  kubectl apply -f freeswitch
+  sleep 2
+  kubectl -n $NAMESPACE wait --for=condition=available deploy/fs --timeout=300s
+
   kubectl apply -f kamailio
 
   kubectl apply -f monitor-agent
 }
 
-# Get args
-while [[ "$#" -gt 0 ]]; do
-  case $1 in
-    -p|--project-id) PROJECT_ID="$2"; shift ;;
-    -r|--region) REGION="$2"; shift ;;
-    -m|--machine-type) MACHINE_TYPE="$2"; shift ;;
-    -q|--quiet) QUIET="$2"; shift ;;
-    -h|--help) displayHelp; exit 0 ;;
-    *) echo "Unknown parameter passed: $1"; exit 1 ;;
-  esac
-  shift
-done
+# Function to select a machine type
+select_machine_type() {
+  local pool=$1
+  PS3="Select a machine type for $pool pool: "
+  select name in "${MACHINE_TYPES[@]}" ; do
+    for reply in $REPLY ; do
+        echo ${MACHINE_TYPES[reply - 1]}
+    done
+    [[ ${MACHINE_TYPES[reply - 1]} ]] && break
+  done
+}
 
-# Set a default project id if not set
-if [ -z "$PROJECT_ID" ]; then
-  PROJECT_ID=$(gcloud config get-value project)
-fi
-
-# Set a default machine type if it isn't set
-if [ -z "$MACHINE_TYPE" ]; then
-  MACHINE_TYPE="c2-standard-4"
-fi
+# Set a default project id
+PROJECT_ID=$(gcloud config get-value project)
 
 # Set a default namespace
 NAMESPACE="production"
 
-# Set a default region if it isn't set
-if [ -z "$REGION" ]; then
-  REGION="us-east1"
-fi
+# Set a default region
+REGION="us-east1"
 
-# Set the default zone if it isn't set
-if [ -z "$ZONE" ]; then
-  ZONE="$REGION-b"
-fi
+# Set the default zone
+ZONE="$REGION-b"
 
-# Check if quiet flag as a value
-if [ -z "$QUIET" ]; then
-  QUIET=0
-  
-  # Ask for project-id
-  read -p "Project ID [$PROJECT_ID]: " PROJECT_ID
-  PROJECT_ID=${PROJECT_ID:-$(gcloud config get-value project)}
-  echo Selected Project ID: "$PROJECT_ID"
+# Ask for project-id
+read -p "Project ID [$PROJECT_ID]: " PROJECT_ID
+PROJECT_ID=${PROJECT_ID:-$(gcloud config get-value project)}
+echo Selected Project ID: "$PROJECT_ID"
 
-  # Ask for region filtered by region in the US
-  REGION_NAMES=(us-west1 us-west2 us-west3 us-west4 us-central1 us-east1 us-east4 us-east5 us-south1)
-  SELECTED_REGION=()
-  PS3='Select a region: '
-  select name in "${REGION_NAMES[@]}" ; do
-    for reply in $REPLY ; do
-        SELECTED_REGION+=(${REGION_NAMES[reply - 1]})
-    done
-    [[ $SELECTED_REGION ]] && break
+# Ask for region filtered by region in the US
+REGION_NAMES=(us-west1 us-west2 us-west3 us-west4 us-central1 us-east1 us-east4 us-east5 us-south1)
+SELECTED_REGION=()
+PS3='Select a region: '
+select name in "${REGION_NAMES[@]}" ; do
+  for reply in $REPLY ; do
+      SELECTED_REGION+=(${REGION_NAMES[reply - 1]})
   done
-  REGION=${SELECTED_REGION[0]}
-  ZONE="$REGION-b"
-  echo Selected region: "${SELECTED_REGION[@]}"
+  [[ $SELECTED_REGION ]] && break
+done
+REGION=${SELECTED_REGION[0]}
+ZONE="$REGION-b"
+echo Selected region: "${SELECTED_REGION[@]}"
 
-  # Ask for machine type
-  MACHINE_TYPES=(n2-standard-2 n2-standard-4 n2-standard-8 n2-standard-16 n2-standard-32 c2-standard-4 c2-standard-8 c2-standard-16 c2-standard-30)
-  SELECTED_MACHINE_TYPE=()
-  PS3='Select a machine type: '
-  select name in "${MACHINE_TYPES[@]}" ; do
-    for reply in $REPLY ; do
-        SELECTED_MACHINE_TYPE+=(${MACHINE_TYPES[reply - 1]})
-    done
-    [[ $SELECTED_MACHINE_TYPE ]] && break
-  done
-  MACHINE_TYPE=${SELECTED_MACHINE_TYPE[0]}
-  echo Selected machine type: "${SELECTED_MACHINE_TYPE[@]}"
-fi
+# Ask for machine type
+MACHINE_TYPES=(n2-standard-2 n2-standard-4 n2-standard-8 n2-standard-16 n2-standard-32 c2-standard-4 c2-standard-8 c2-standard-16 c2-standard-30 c4-standard-4 c4-standard-8 c4-standard-16 c4-standard-32)
+DEFAULT_POOL_MACHINE_TYPE=$(select_machine_type "default")
+INTERNAL_MEDIA_MACHINE_TYPE=$(select_machine_type "internal-media")
+EXTERNAL_SIP_MACHINE_TYPE=$(select_machine_type "external-sip")
+EXTERNAL_RTP_MACHINE_TYPE=$(select_machine_type "external-rtp")
+FS_MACHINE_TYPE=$(select_machine_type "freeswitch")
 
 # Sanity check to make sure the cluster doesn't already exist
 CLUSTER_EXISTS=$(gcloud container clusters list --format=json | grep "$REGION")
@@ -563,21 +569,22 @@ fi
 echo "The following will be created:"
 echo "  - Cluster: $REGION"
 echo "  - Namespace: $NAMESPACE"
-echo "  - Machine Type: $MACHINE_TYPE"
+echo "  - Default pool Machine Type: $DEFAULT_POOL_MACHINE_TYPE"
+echo "  - Internal Media Machine Type: $INTERNAL_MEDIA_MACHINE_TYPE"
+echo "  - External SIP Machine Type: $EXTERNAL_SIP_MACHINE_TYPE"
+echo "  - External RTP Machine Type: $EXTERNAL_RTP_MACHINE_TYPE"
 echo "  - Project: $PROJECT_ID"
 echo "  - Deploying Config Region: $CONFIG_REGION"
 echo "  - Current MCI Config Region: $CURRENT_CONFIG_REGION"
 echo "  - Creating Certs: $CONFIG_REGION"
 
-# Check if QUIET is not 0. If it is, then we don't ask for confirmation
-if [ "$QUIET" == "0" ]; then
-  read -p "Continue (y/n)? " choice
-  case "$choice" in
-    y|Y ) echo "Continuing";;
-    n|N ) echo "Exiting"; exit 1 ;;
-    * ) echo "Invalid. Exiting"; exit 1 ;;
-  esac
-fi
+# Ask for confirmation before continuing
+read -p "Continue (y/n)? " choice
+case "$choice" in
+  y|Y ) echo "Continuing";;
+  n|N ) echo "Exiting"; exit 1 ;;
+  * ) echo "Invalid. Exiting"; exit 1 ;;
+esac
 
 # Create firewall rules for external-sip and external-udp tagged Node Pool(s)
 addFirewallRules

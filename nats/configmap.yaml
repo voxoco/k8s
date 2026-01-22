@@ -4,10 +4,10 @@ metadata:
   name: nats-config
   namespace: production
 data:
-  nats.conf: |
+  nats-server.conf: |
     pid_file: "/var/run/nats/nats.pid"
     http: 8222
-    server_name: "{{ env "REGION" }}-{{ env "POD_NAME" }}"
+    server_name: "$REGION-$POD_NAME"
 
     jetstream: enabled
 
@@ -19,11 +19,11 @@ data:
     }
 
     authorization {
-      token: "{{ env "NATSTOKEN" }}"
+      token: "$NATSTOKEN"
     }
 
     cluster {
-      name: "{{ env "REGION" }}"
+      name: "$REGION"
       listen: "0.0.0.0:6222"
 
       routes = [
@@ -34,17 +34,37 @@ data:
 
       connect_retries: 30
     }
-    {{ $exists := false }}{{ range tree "nats" }}{{ if .Key | contains "nats" }}{{ $exists = true }}{{ end }}{{ end }}
+
     gateway {
-      name: "{{ env "REGION" }}"
+      name: "$REGION"
       listen: "0.0.0.0:7222"
       connect_retries: 30
-      advertise: "{{ env "PODIP" }}:7222"
+      advertise: "$PODIP:7222"
       gateways: [
-      {{ if $exists }}
-      {{ range $key, $pairs := tree "nats" | byKey }}{ "name": "{{ $key }}", "urls": [ {{ range $pair := $pairs }}"nats://{{ .Value }}:7222", {{ end }}] }, {{ end }}
-      {{ else }}
-      { "name": "{{ env "REGION" }}", "url": "nats://{{ env "POD_NAME" }}.nats.{{ env "NS" }}.svc.{{ env "REGION" }}:7222" }
-      {{ end }}
-      ]
+          { 
+            "name": "us-east1", 
+            "urls": [ 
+              "nats://nats-0.nats.$NS.svc.us-east1:7222",
+              "nats://nats-1.nats.$NS.svc.us-east1:7222",
+              "nats://nats-2.nats.$NS.svc.us-east1:7222"
+            ]
+          },
+          {
+            "name": "us-central1",
+            "urls": [
+              "nats://nats-0.nats.$NS.svc.us-central1:7222",
+              "nats://nats-1.nats.$NS.svc.us-central1:7222",
+              "nats://nats-2.nats.$NS.svc.us-central1:7222"
+            ]
+          },
+          {
+            "name": "us-south1",
+            "urls": [
+              "nats://nats-0.nats.$NS.svc.us-south1:7222",
+              "nats://nats-1.nats.$NS.svc.us-south1:7222",
+              "nats://nats-2.nats.$NS.svc.us-south1:7222"
+            ]
+          }
+        ]
+      }
     }
