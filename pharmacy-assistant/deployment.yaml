@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pharmacy-assistant
+  namespace: production
+  labels:
+    component: pharmacy-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: pharmacy-assistant
+  template:
+    metadata:
+      labels:
+        component: pharmacy-assistant
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      volumes:
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
+      containers:
+        - name: pharmacy-assistant
+          image: us-docker.pkg.dev/voxo-5060/voxoco/pharmacy-assistant:latest
+          command: ["python", "agent.py", "start", "--log-level", "debug"]
+          resources:
+            requests:
+              cpu: 50m
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: AGENT_NAME
+              value: pharmacy_assistant
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+          imagePullPolicy: Always
+        - name: api
+          image: us-docker.pkg.dev/voxo-5060/voxoco/pharmacy-assistant:latest
+          command: ["python", "sms_api.py", "start", "--log-level", "debug"]
+          resources:
+            requests:
+              cpu: 50m
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: AGENT_NAME
+              value: pharmacy_assistant
+            - name: MYSQL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-url
+                  key: connectionString
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          ports:
+            - name: http
+              containerPort: 8000
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: regcred

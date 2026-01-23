@@ -24,7 +24,6 @@ spec:
       containers:
         - name: sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
-          command: ["node", "kamailio-internal-sidecar/main.js"]
           ports:
             - name: metrics
               containerPort: 3000
@@ -33,11 +32,23 @@ spec:
               value: America/Chicago
             - name: NODE_ENV
               value: production
-            - name: MYSQL
+            - name: SERVICE
+              value: kam-internal
+            - name: MYSQL_PRIMARY_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-url
-                  key: connectionString
+                  name: mysql-primary-url
+                  key: key
+            - name: MYSQL_READER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-reader-url
+                  key: key
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
             - name: SERVERIDENV
               valueFrom:
                 configMapKeyRef:

@@ -1,61 +1,76 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
-  name: kamailio
+  name: fs
   namespace: production
   labels:
-    component: kamailio
+    component: fs
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      component: kamailio
+      component: fs
   template:
     metadata:
-      name: kamailio
       labels:
-        component: kamailio
+        component: fs
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
     spec:
       nodeSelector:
-        cloud.google.com/gke-nodepool: external-sip
+        cloud.google.com/gke-nodepool: freeswitch
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      terminationGracePeriodSeconds: 2
-      serviceAccountName: manager
+      terminationGracePeriodSeconds: 21600
+      volumes:
+        - name: cache
+          emptyDir: {}
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
+        - name: media
+          emptyDir:
+            medium: Memory
+            sizeLimit: "1Gi"
+        - name: recordings
+          emptyDir:
+            medium: Memory
+            sizeLimit: "1Gi"
       initContainers:
         - name: init
           image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
           volumeMounts:
-            - name: config
-              mountPath: /etc/kamailio/kv
             - name: google-service-account
               mountPath: /var/secrets/google
+          imagePullPolicy: Always
           args:
             - --assign-external-ip=true
             - --region=$(REGION)
             - --zone=$(ZONE)
             - --node-name=$(NODE_NAME)
-            - --type=sip
-            - --kamailio-consul=1
+            - --type=media
           env:
             - name: SERVICE
               value: kube-client
             - name: NODE_ENV
               value: production
-            - name: MYSQL_READER_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
             - name: MYSQL_PRIMARY_URL
               valueFrom:
                 secretKeyRef:
                   name: mysql-primary-url
                   key: key
-            - name: SERVERID
+            - name: MYSQL_READER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-reader-url
+                  key: key
+            - name: SERVERIDENV
               valueFrom:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
+            - name: SERVERID
+              value: "9$(SERVERIDENV)"
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
             - name: REGION
@@ -73,98 +88,77 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
       containers:
+        - name: freeswitch
+          image: us-docker.pkg.dev/voxo-5060/voxoco/freeswitch:latest
+          ports:
+            - containerPort: 8021
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "infinity"]
+          resources:
+            requests:
+              cpu: 2500m
+          env:
+            - name: TZ
+              value: America/Chicago
+          volumeMounts:
+            - name: media
+              mountPath: /tmp/media
+            - name: recordings
+              mountPath: /tmp/recordings
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+              - NET_ADMIN
+              - SYS_NICE
         - name: sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
+          ports:
+            - name: metrics
+              containerPort: 3000
           env:
             - name: SERVICE
-              value: kamailio
+              value: freeswitch
             - name: TZ
               value: America/Chicago
             - name: NODE_ENV
               value: production
-            - name: MYSQL_READER_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
             - name: MYSQL_PRIMARY_URL
               valueFrom:
                 secretKeyRef:
                   name: mysql-primary-url
                   key: key
-            - name: REGION
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: clusterName
-            - name: SERVERID
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: serverId
-          volumeMounts:
-            - name: config
-              mountPath: /etc/kamailio/kv
-          ports:
-            - name: metrics
-              containerPort: 3000
-          imagePullPolicy: Always
-        - name: kamailio
-          image: us-docker.pkg.dev/voxo-5060/voxoco/kamailio:latest
-          resources:
-            requests:
-              cpu: 2300m
-          ports:
-            - name: webrtc
-              protocol: TCP
-              containerPort: 8080
-          env:
-            - name: REGION
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: clusterName
-            - name: TZ
-              value: America/Chicago
-            - name: PODNAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
             - name: MYSQL_READER_URL
               valueFrom:
                 secretKeyRef:
                   name: mysql-reader-url
                   key: key
-            - name: SERVERID
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: SERVERIDENV
               valueFrom:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
-            - name: DISPATCHMODE
-              value: "4"
-            - name: CLOUD
-              value: gcp
-            - name: LB_IPV4
-              value: "34.117.222.234"
+            - name: SERVERID
+              value: "9$(SERVERIDENV)"
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
           volumeMounts:
+            - name: cache
+              mountPath: /tmp/cache
             - name: google-service-account
               mountPath: /var/secrets/google
-            - name: config
-              mountPath: /etc/kamailio/kv
-          securityContext:
-            privileged: true
-            capabilities:
-              add: [ "NET_ADMIN" ]
+            - name: media
+              mountPath: /tmp/media
+            - name: recordings
+              mountPath: /tmp/recordings
           imagePullPolicy: Always
-      volumes:
-        - name: config
-          hostPath:
-            path: /var/lib/kamailio
-            type: DirectoryOrCreate
-        - name: google-service-account
-          secret:
-            secretName: google-service-account
       imagePullSecrets:
         - name: regcred

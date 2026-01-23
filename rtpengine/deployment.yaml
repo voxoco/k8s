@@ -31,7 +31,6 @@ spec:
           volumeMounts:
             - name: google-service-account
               mountPath: /var/secrets/google
-          command: ["node", "kube-client/main.js"]
           args:
             - --assign-external-ip=true
             - --region=$(REGION)
@@ -39,13 +38,20 @@ spec:
             - --node-name=$(NODE_NAME)
             - --type=rtp
           env:
+            - name: SERVICE
+              value: kube-client
             - name: NODE_ENV
               value: production
-            - name: MYSQL
+            - name: MYSQL_READER_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-url
-                  key: connectionString
+                  name: mysql-reader-url
+                  key: key
+            - name: MYSQL_PRIMARY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-primary-url
+                  key: key
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
             - name: REGION
@@ -101,10 +107,11 @@ spec:
           imagePullPolicy: Always
         - name: sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
-          command: ["node", "rtpengine-sidecar/main.js"]
           ports:
             - containerPort: 42187
           env:
+            - name: SERVICE
+              value: rtpengine
             - name: NODE_ENV
               value: production
             - name: SERVERID
@@ -112,11 +119,21 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
-            - name: MYSQL
+            - name: MYSQL_READER_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-url
-                  key: connectionString
+                  name: mysql-reader-url
+                  key: key
+            - name: MYSQL_PRIMARY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-primary-url
+                  key: key
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
           securityContext:
             runAsUser: 0
             privileged: true

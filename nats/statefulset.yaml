@@ -20,41 +20,27 @@ spec:
     spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: default-pool
-      # Common volumes for the containers
       volumes:
-        - name: config-volume-ro
+        - name: config-template
           configMap:
             name: nats-config
-        - name: config-volume-rw
+        - name: config
           emptyDir: {}
         - name: pid
           emptyDir: {}
-      # Required to be able to HUP signal and apply config reload
-      # to the server without restarting the pod.
-      shareProcessNamespace: true
-      terminationGracePeriodSeconds: 30
       initContainers:
-        - name: init
-          image: hashicorp/consul-template:alpine
-          args: ["-template", "/tmp/nats.conf:/etc/nats-config/nats.conf", "-once"]
+        - name: config-generator
+          image: bhgedigital/envsubst:latest
           env:
-            - name: CONSUL_HTTP_SSL
-              value: "true"
-            - name: CONSUL_HTTP_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: consul-address
-                  key: key
-            - name: CONSUL_HTTP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: consul-token
-                  key: key
             - name: REGION
               valueFrom:
                 configMapKeyRef:
                   name: cluster-details
                   key: clusterName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: NS
               valueFrom:
                 fieldRef:
@@ -64,63 +50,20 @@ spec:
                 secretKeyRef:
                   name: nats-token
                   key: key
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
             - name: PODIP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-          volumeMounts:
-            - name: config-volume-ro
-              mountPath: /tmp
-            - name: config-volume-rw
-              mountPath: /etc/nats-config
-      containers:
-        - name: sidecar
-          image: badouralix/curl-jq:alpine
-          command:
-            - /bin/sh
-            - -c
+          command: ["/bin/sh", "-c"]
+          args:
             - |
-              #!/bin/sh
-              set -e
-              exit_script() {
-                echo "Tearing down..."
-                trap - SIGINT SIGTERM # clear the trap
-
-                # Delete this node from Consul
-                curl -s -X DELETE -H "X-Consul-Token: $CONSUL_HTTP_TOKEN" "https://$CONSUL_HTTP_ADDR/v1/kv/nats/$REGION/$POD_NAME"
-              }
-              trap exit_script SIGINT SIGTERM
-              # Register this node in Consul
-              curl -s -X PUT -H "X-Consul-Token: $CONSUL_HTTP_TOKEN" -d "$POD_NAME.nats.$NS.svc.$REGION" "https://$CONSUL_HTTP_ADDR/v1/kv/nats/$REGION/$POD_NAME"
-              while true; do sleep 1; done
-          env:
-            - name: CONSUL_HTTP_ADDR
-              valueFrom:
-                secretKeyRef:
-                  name: consul-address
-                  key: key
-            - name: CONSUL_HTTP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: consul-token
-                  key: key
-            - name: REGION
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: clusterName
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: NS
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+              envsubst < /etc/nats-template/nats-server.conf > /etc/nats/nats-server.conf
+          volumeMounts:
+            - name: config-template
+              mountPath: /etc/nats-template
+            - name: config
+              mountPath: /etc/nats
+      containers:
         - name: nats-exporter
           image: natsio/prometheus-nats-exporter:latest
           args:
@@ -135,7 +78,7 @@ spec:
           image: nats:alpine
           resources:
             requests:
-              cpu: 200m
+              cpu: 50m
           ports:
             - containerPort: 4222
               name: client
@@ -149,13 +92,9 @@ spec:
               name: monitor
             - containerPort: 8080
               name: ws
-          command:
-            - "nats-server"
-            - "--config"
-            - "/etc/nats-config/nats.conf"
           volumeMounts:
-            - name: config-volume-rw
-              mountPath: /etc/nats-config
+            - name: config
+              mountPath: /etc/nats
             - name: pid
               mountPath: /var/run/nats
           livenessProbe:
@@ -173,9 +112,5 @@ spec:
           lifecycle:
             preStop:
               exec:
-                # Using the alpine based NATS image, we add an extra sleep that is
-                # the same amount as the terminationGracePeriodSeconds to allow
-                # the NATS Server to gracefully terminate the client connections.
-                #
                 command: ["/bin/sh", "-c", "/nats-server -sl=ldm=/var/run/nats/nats.pid && /bin/sleep 60"]
           imagePullPolicy: Always
