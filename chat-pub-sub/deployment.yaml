@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-pub-sub
+  namespace: production
+  labels:
+    component: chat-pub-sub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: chat-pub-sub
+  template:
+    metadata:
+      labels:
+        component: chat-pub-sub
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: default-pool
+      containers:
+        - name: chat-pub-sub
+          image: us-docker.pkg.dev/voxo-5060/voxoco/chat-pub-sub:latest
+          resources:
+            requests:
+              cpu: 50m
+          env:
+            - name: TZ
+              value: America/Chicago
+            - name: MYSQL_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-primary-url
+                  key: key
+            - name: MYSQL_READER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-reader-url
+                  key: key
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: regcred

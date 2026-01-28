@@ -19,6 +19,8 @@ spec:
     spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: internal-media
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       terminationGracePeriodSeconds: 21600
       volumes:
         - name: google-service-account
@@ -45,6 +47,48 @@ spec:
               mountPath: /var/log/asterisk
             - name: spool
               mountPath: /var/spool/asterisk
+        - name: init-assign-ip
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
+          args:
+            - --assign-external-ip=true
+            - --region=$(REGION)
+            - --zone=$(ZONE)
+            - --node-name=$(NODE_NAME)
+            - --type=media
+          env:
+            - name: SERVICE
+              value: kube-client
+            - name: NODE_ENV
+              value: production
+            - name: MYSQL_READER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-reader-url
+                  key: key
+            - name: MYSQL_PRIMARY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-primary-url
+                  key: key
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
+            - name: ZONE
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: zone
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
       containers:
         - name: sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-telecom:latest

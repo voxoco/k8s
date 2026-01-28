@@ -28,3 +28,7 @@ spec:
               backend:
                 serviceName: kamailio-mcs
                 servicePort: 8080
+            - path: /chat-pub-sub/*
+              backend:
+                serviceName: chat-pub-sub-mcs
+                servicePort: 3000

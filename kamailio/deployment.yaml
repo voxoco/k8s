@@ -28,21 +28,21 @@ spec:
             - name: metrics
               containerPort: 3000
           env:
+            - name: SERVICE
+              value: kam-internal
             - name: TZ
               value: America/Chicago
             - name: NODE_ENV
               value: production
-            - name: SERVICE
-              value: kam-internal
-            - name: MYSQL_PRIMARY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
             - name: MYSQL_READER_URL
               valueFrom:
                 secretKeyRef:
                   name: mysql-reader-url
+                  key: key
+            - name: MYSQL_PRIMARY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-primary-url
                   key: key
             - name: REGION
               valueFrom:
@@ -63,18 +63,14 @@ spec:
               mountPath: /var/secrets/google
           imagePullPolicy: Always
         - name: kam-internal
-          image: us-docker.pkg.dev/voxo-5060/voxoco/kamailio-internal:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/kamailio:latest
+          command: [ "/entrypoint_internal.sh" ]
           resources:
             requests:
               cpu: 1000m
           ports:
             - containerPort: 8080
           env:
-            - name: PROXYIP
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster-details
-                  key: proxyIp
             - name: PODIP
               valueFrom:
                 fieldRef:

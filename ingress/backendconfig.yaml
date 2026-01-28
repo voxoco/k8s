@@ -46,3 +46,19 @@ spec:
     port: 3050
     type: HTTP
     requestPath: /v2
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: chat-pub-sub
+  namespace: production
+spec:
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+  timeoutSec: 2592000
+  healthCheck:
+    port: 3000
+    type: HTTP
+    requestPath: /chat-pub-sub/health
+  connectionDraining:
+    drainingTimeoutSec: 1

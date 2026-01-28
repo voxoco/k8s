@@ -72,3 +72,25 @@ spec:
   - link: "us-central1-b/us-central1"
   - link: "us-east1-b/us-east1"
   - link: "us-south1-b/us-south1"
+---
+apiVersion: networking.gke.io/v1
+kind: MultiClusterService
+metadata:
+  name: chat-pub-sub-mcs
+  namespace: production
+  annotations:
+    cloud.google.com/backend-config: '{"ports": {"3000":"chat-pub-sub"}}'
+spec:
+  template:
+    spec:
+      selector:
+        component: chat-pub-sub
+      ports:
+        - name: http
+          protocol: TCP
+          port: 3000
+          targetPort: 3000
+  clusters:
+  - link: "us-central1-b/us-central1"
+  - link: "us-east1-b/us-east1"
+  - link: "us-south1-b/us-south1"
