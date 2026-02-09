@@ -29,13 +29,8 @@ spec:
             - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
-            - name: MYSQL_READER_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
           imagePullPolicy: Always
       imagePullSecrets:
         - name: regcred
