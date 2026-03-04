@@ -18,6 +18,10 @@ spec:
       nodeSelector:
         cloud.google.com/gke-nodepool: pharmacy-agent
       terminationGracePeriodSeconds: 21600
+      volumes:
+        - name: google-service-account
+          secret:
+            secretName: google-service-account
       containers:
         - name: pharmacy-assistant
           image: us-docker.pkg.dev/voxo-5060/voxoco/pharmacy-assistant:latest
@@ -35,6 +39,11 @@ spec:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
           imagePullPolicy: Always
         - name: api
           image: us-docker.pkg.dev/voxo-5060/voxoco/pharmacy-assistant:latest
@@ -52,6 +61,11 @@ spec:
                 secretKeyRef:
                   name: mysql-url
                   key: connectionString
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/secrets/google/key.json
+          volumeMounts:
+            - name: google-service-account
+              mountPath: /var/secrets/google
           ports:
             - name: http
               containerPort: 8000

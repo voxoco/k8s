@@ -41,16 +41,11 @@ spec:
               value: kube-client
             - name: NODE_ENV
               value: production
-            - name: MYSQL_READER_URL
+            - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
-            - name: MYSQL_PRIMARY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:
@@ -82,16 +77,11 @@ spec:
               value: America/Chicago
             - name: NODE_ENV
               value: production
-            - name: MYSQL_READER_URL
+            - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
-            - name: MYSQL_PRIMARY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
             - name: REGION
               valueFrom:
                 configMapKeyRef:
@@ -130,11 +120,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: MYSQL_READER_URL
+            - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:

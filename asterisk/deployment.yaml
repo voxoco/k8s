@@ -6,7 +6,7 @@ metadata:
   labels:
     component: asterisk
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       component: asterisk
@@ -63,16 +63,11 @@ spec:
               value: kube-client
             - name: NODE_ENV
               value: production
-            - name: MYSQL_READER_URL
+            - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
-            - name: MYSQL_PRIMARY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
             - name: REGION
@@ -102,16 +97,11 @@ spec:
               value: America/Chicago
             - name: NODE_ENV
               value: production
-            - name: MYSQL_PRIMARY_URL
+            - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
-            - name: MYSQL_READER_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
             - name: SERVERID
               valueFrom:
                 configMapKeyRef:
@@ -134,6 +124,8 @@ spec:
             - name: spool
               mountPath: /var/spool/asterisk
           imagePullPolicy: Always
+          securityContext:
+            privileged: true
         - name: asterisk-sidecar
           image: us-docker.pkg.dev/voxo-5060/voxoco/asterisk-sidecar:latest
           ports:

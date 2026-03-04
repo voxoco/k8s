@@ -42,16 +42,11 @@ spec:
               value: kube-client
             - name: NODE_ENV
               value: production
-            - name: MYSQL_READER_URL
+            - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
-            - name: MYSQL_PRIMARY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
             - name: REGION
@@ -119,16 +114,11 @@ spec:
                 configMapKeyRef:
                   name: cluster-details
                   key: serverId
-            - name: MYSQL_READER_URL
+            - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
-            - name: MYSQL_PRIMARY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
             - name: REGION
               valueFrom:
                 configMapKeyRef:
