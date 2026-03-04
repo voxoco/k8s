@@ -53,6 +53,8 @@ createCluster() {
   gcloud beta container --project "$PROJECT_ID" node-pools create "external-sip" --cluster "$REGION" --zone "$ZONE" --machine-type "$EXTERNAL_SIP_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "external-sip,$REGION" --node-locations "$ZONE"
   # Add the internal-media node pool to the cluster
   gcloud beta container --project "$PROJECT_ID" node-pools create "internal-media" --cluster "$REGION" --zone "$ZONE" --machine-type "$INTERNAL_MEDIA_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "internal-media,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "30" --node-locations "$ZONE"
+  # Add the internal-sip node pool to the cluster
+  gcloud beta container --project "$PROJECT_ID" node-pools create "internal-sip" --cluster "$REGION" --zone "$ZONE" --machine-type "$INTERNAL_SIP_MACHINE_TYPE" --image-type "COS_CONTAINERD" --disk-type "hyperdisk-balanced" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "3" --enable-autoscaling --min-nodes "3" --max-nodes "10" --location-policy "BALANCED" --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --shielded-integrity-monitoring --no-shielded-secure-boot --tags "internal-sip,$REGION" --node-locations "$ZONE"
   # Add the freeswitch node pool to the cluster
   gcloud beta container --project "$PROJECT_ID" node-pools create "freeswitch" --cluster "$REGION" --zone "$ZONE" --machine-type "$FS_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "freeswitch,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "30" --node-locations "$ZONE"
 
@@ -522,11 +524,12 @@ ZONE="$REGION-b"
 echo Selected region: "${SELECTED_REGION[@]}"
 
 # Ask for machine type
-MACHINE_TYPES=(n2-standard-2 n2-standard-4 n2-standard-8 n2-standard-16 n2-standard-32 c2-standard-4 c2-standard-8 c2-standard-16 c2-standard-30 c4-standard-4 c4-standard-8 c4-standard-16 c4-standard-32)
+MACHINE_TYPES=(n2-standard-2 n2-standard-4 n2-standard-8 n2-standard-16 n2-standard-32 c2-standard-4 c2-standard-8 c2-standard-16 c2-standard-30 c4-standard-2 c4-standard-4 c4-standard-8 c4-standard-16 c4-standard-32)
 DEFAULT_POOL_MACHINE_TYPE=$(select_machine_type "default")
 INTERNAL_MEDIA_MACHINE_TYPE=$(select_machine_type "internal-media")
 EXTERNAL_SIP_MACHINE_TYPE=$(select_machine_type "external-sip")
 EXTERNAL_RTP_MACHINE_TYPE=$(select_machine_type "external-rtp")
+INTERNAL_SIP_MACHINE_TYPE=$(select_machine_type "internal-sip")
 FS_MACHINE_TYPE=$(select_machine_type "freeswitch")
 
 # Sanity check to make sure the cluster doesn't already exist
@@ -573,6 +576,7 @@ echo "  - Default pool Machine Type: $DEFAULT_POOL_MACHINE_TYPE"
 echo "  - Internal Media Machine Type: $INTERNAL_MEDIA_MACHINE_TYPE"
 echo "  - External SIP Machine Type: $EXTERNAL_SIP_MACHINE_TYPE"
 echo "  - External RTP Machine Type: $EXTERNAL_RTP_MACHINE_TYPE"
+echo "  - Internal SIP Machine Type: $INTERNAL_SIP_MACHINE_TYPE"
 echo "  - Project: $PROJECT_ID"
 echo "  - Deploying Config Region: $CONFIG_REGION"
 echo "  - Current MCI Config Region: $CURRENT_CONFIG_REGION"
