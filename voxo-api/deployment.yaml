@@ -41,6 +41,11 @@ spec:
                 secretKeyRef:
                   name: nats-token
                   key: key
+            - name: REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster-details
+                  key: clusterName
             - name: MYSQL
               valueFrom:
                 secretKeyRef:

@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxysql-bootstrap
+  namespace: production
+data:
+  proxysql.sh: |
+    #!/bin/sh
+
+    PRIMARY_HOST=$(echo "$MYSQL_PRIMARY_URL" | sed -n 's|.*://\([^@]*@\)\?\([^:/]*\).*|\2|p')
+    READER_HOST=$(echo "$MYSQL_READER_URL" | sed -n 's|.*://\([^@]*@\)\?\([^:/]*\).*|\2|p')
+
+    bootstrap() {
+      echo "Bootstrapping..."
+
+      # Make sure this proxysql node is actually online first
+      while ! mariadb-admin ping -u admin -padmin -h 127.0.0.1 -P 6032 --silent > /dev/null 2>&1 ; do
+        sleep 5
+      done
+
+      echo "Sleeping for 5 seconds"
+      sleep 5
+
+      # If there are already servers in mysql_servers then we have already been bootstrapped
+      if [ $(mariadb -u admin -padmin -h 127.0.0.1 -P 6032 -e "select count(*) from mysql_servers" -s --skip-column-names) -ne 0 ]; then
+        echo "mysql_servers already populated. Node has already been bootstrapped"
+        return
+      fi
+
+      # Update the monitor variable
+      echo "Updating monitor global variable"
+      mariadb -u admin -padmin -h 127.0.0.1 -P 6032 -e "
+      UPDATE global_variables SET variable_value='true' WHERE variable_name='admin-restapi_enabled';
+      UPDATE global_variables SET variable_value='$DB_NAME' WHERE variable_name='mysql-monitor_username';
+      UPDATE global_variables SET variable_value='$DB_NAME' WHERE variable_name='mysql-monitor_password';
+      UPDATE global_variables SET variable_value='true' WHERE variable_name='mysql-have_ssl';
+      LOAD MYSQL VARIABLES TO RUNTIME;
+      SAVE MYSQL VARIABLES TO DISK;
+      LOAD ADMIN VARIABLES TO RUNTIME;
+      SAVE ADMIN VARIABLES TO DISK;"
+
+      # Add user/pass to proxysql
+      echo "Adding user/pass to proxysql"
+      mariadb -u admin -padmin -h 127.0.0.1 -P 6032 -e "
+      INSERT INTO mysql_users(username,password,default_hostgroup) VALUES ('$DB_NAME','$DB_NAME',0);
+      LOAD MYSQL USERS TO RUNTIME;
+      SAVE MYSQL USERS TO DISK;"
+
+      # Add query rules
+      echo "Adding query rules"
+      mariadb -u admin -padmin -h 127.0.0.1 -P 6032 -e "
+      INSERT INTO mysql_query_rules (active, match_digest, destination_hostgroup, apply) VALUES (1, '^SELECT.*FOR UPDATE', 0, 0);
+      INSERT INTO mysql_query_rules (active, match_digest, destination_hostgroup, apply) VALUES (1, '^SELECT', 1, 1);
+      LOAD MYSQL QUERY RULES TO RUNTIME;
+      SAVE MYSQL QUERY RULES TO DISK;"
+
+      # Add mysql_servers
+      echo "Adding mysql_servers"
+      mariadb -u admin -padmin -h 127.0.0.1 -P 6032 -e "
+      DELETE FROM mysql_servers where hostgroup_id=0;
+      INSERT into mysql_servers (hostgroup_id, hostname, use_ssl) values (0, '$PRIMARY_HOST', 1);
+      DELETE FROM mysql_servers where hostgroup_id=1;
+      INSERT into mysql_servers (hostgroup_id, hostname, weight, use_ssl) values (1, '$READER_HOST', 10000000, 1);"
+
+      mariadb -u admin -padmin -h 127.0.0.1 -P 6032 -e "
+      INSERT into mysql_servers (hostgroup_id, hostname, weight, use_ssl) values (1, '$PRIMARY_HOST', 1, 1);" 2>/dev/null || true
+
+      mariadb -u admin -padmin -h 127.0.0.1 -P 6032 -e "
+      LOAD MYSQL SERVERS TO RUNTIME;
+      SAVE MYSQL SERVERS TO DISK;"
+
+      touch /ready.txt
+      echo "Bootstrapping complete"
+    }
+
+    bootstrap
+
+    sleep infinity

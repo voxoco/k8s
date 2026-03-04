@@ -6,7 +6,7 @@ metadata:
   labels:
     component: pharmacy-assistant
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       component: pharmacy-assistant
@@ -16,7 +16,8 @@ spec:
         component: pharmacy-assistant
     spec:
       nodeSelector:
-        cloud.google.com/gke-nodepool: default-pool
+        cloud.google.com/gke-nodepool: pharmacy-agent
+      terminationGracePeriodSeconds: 21600
       volumes:
         - name: google-service-account
           secret:
@@ -62,12 +63,12 @@ spec:
                   key: connectionString
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/secrets/google/key.json
-          ports:
-            - name: http
-              containerPort: 8000
           volumeMounts:
             - name: google-service-account
               mountPath: /var/secrets/google
+          ports:
+            - name: http
+              containerPort: 8000
           imagePullPolicy: Always
       imagePullSecrets:
         - name: regcred

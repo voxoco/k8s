@@ -15,6 +15,10 @@ rules:
       - secrets
       - events
     verbs: ["get", "watch", "list", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs: ["get", "patch"]
   - nonResourceURLs: ["/metrics"]
     verbs: ["get"]
 ---

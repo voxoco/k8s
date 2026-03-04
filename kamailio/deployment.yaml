@@ -16,7 +16,7 @@ spec:
         component: kam-internal
     spec:
       nodeSelector:
-        cloud.google.com/gke-nodepool: default-pool
+        cloud.google.com/gke-nodepool: internal-sip
       volumes:
         - name: google-service-account
           secret:
@@ -34,16 +34,11 @@ spec:
               value: America/Chicago
             - name: NODE_ENV
               value: production
-            - name: MYSQL_READER_URL
+            - name: MYSQL_URL
               valueFrom:
                 secretKeyRef:
-                  name: mysql-reader-url
-                  key: key
-            - name: MYSQL_PRIMARY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-primary-url
-                  key: key
+                  name: mysql-url
+                  key: connectionString
             - name: REGION
               valueFrom:
                 configMapKeyRef:
@@ -67,7 +62,7 @@ spec:
           command: [ "/entrypoint_internal.sh" ]
           resources:
             requests:
-              cpu: 1000m
+              cpu: 1200m
           ports:
             - containerPort: 8080
           env:

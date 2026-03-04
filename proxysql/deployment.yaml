@@ -30,8 +30,11 @@ spec:
             requests:
               cpu: 50m
         - name: sidecar
-          image: ghcr.io/voxoco/orchestrator-sidecar:latest
-          command: ["/bin/sh", "/proxysql.sh"]
+          image: alpine/mysql
+          command: ["/bin/sh", "/scripts/proxysql.sh"]
+          volumeMounts:
+            - name: bootstrap-script
+              mountPath: /scripts
           env:
             - name: MYSQL_PRIMARY_URL
               valueFrom:
@@ -58,6 +61,11 @@ spec:
             exec:
               command: ["cat", "/ready.txt"]
           imagePullPolicy: Always
+      volumes:
+        - name: bootstrap-script
+          configMap:
+            name: proxysql-bootstrap
+            defaultMode: 0755
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -68,5 +76,3 @@ spec:
                 values:
                 - external-rtp
                 - external-sip
-      imagePullSecrets:
-        - name: regcred
