@@ -143,6 +143,9 @@ spec:
               mountPath: /var/secrets/google
             - name: config
               mountPath: /etc/kamailio/kv
+            - name: tls-certs
+              mountPath: /etc/kamailio/tls
+              readOnly: true
           securityContext:
             privileged: true
             capabilities:
@@ -156,5 +159,9 @@ spec:
         - name: google-service-account
           secret:
             secretName: google-service-account
+        - name: tls-certs
+          secret:
+            secretName: sip-voxo-co-tls
+            optional: true
       imagePullSecrets:
         - name: regcred
