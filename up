@@ -54,7 +54,7 @@ createCluster() {
   # Add the internal-media node pool to the cluster
   gcloud beta container --project "$PROJECT_ID" node-pools create "internal-media" --cluster "$REGION" --zone "$ZONE" --machine-type "$INTERNAL_MEDIA_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "internal-media,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "30" --node-locations "$ZONE"
   # Add the internal-sip node pool to the cluster
-  gcloud beta container --project "$PROJECT_ID" node-pools create "internal-sip" --cluster "$REGION" --zone "$ZONE" --machine-type "$INTERNAL_SIP_MACHINE_TYPE" --image-type "COS_CONTAINERD" --disk-type "hyperdisk-balanced" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "3" --enable-autoscaling --min-nodes "3" --max-nodes "10" --location-policy "BALANCED" --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --shielded-integrity-monitoring --no-shielded-secure-boot --tags "internal-sip,$REGION" --node-locations "$ZONE"
+  gcloud beta container --project "$PROJECT_ID" node-pools create "internal-sip" --cluster "$REGION" --zone "$ZONE" --machine-type "$INTERNAL_SIP_MACHINE_TYPE" --image-type "COS_CONTAINERD" --disk-type "hyperdisk-balanced" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "2" --enable-autoscaling --min-nodes "2" --max-nodes "10" --location-policy "BALANCED" --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --shielded-integrity-monitoring --no-shielded-secure-boot --tags "internal-sip,$REGION" --node-locations "$ZONE"
   # Add the freeswitch node pool to the cluster
   gcloud beta container --project "$PROJECT_ID" node-pools create "freeswitch" --cluster "$REGION" --zone "$ZONE" --machine-type "$FS_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "freeswitch,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "30" --node-locations "$ZONE"
 
@@ -429,6 +429,11 @@ EOF
   # Set kubeconfig
   kubectl config use $REGION
   echo "kubeconfig set to $REGION"
+
+  # Deploy cert-manager (installs into its own cert-manager namespace, but watches all namespaces)
+  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.20.0/cert-manager.yaml
+  sleep 2
+  kubectl apply -f kamailio/cert.yaml
 
   # Deploy NATS (because everything needs it)
   kubectl apply -f nats

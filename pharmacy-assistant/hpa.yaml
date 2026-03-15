@@ -1,15 +1,15 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: kam-internal
+  name: pharmacy-assistant
   namespace: production
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: kam-internal
-  minReplicas: 2
-  maxReplicas: 10
+    name: pharmacy-assistant
+  minReplicas: 1
+  maxReplicas: 20
   metrics:
   - type: Resource
     resource:
