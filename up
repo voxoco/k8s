@@ -15,7 +15,7 @@ addFirewallRules() {
   FIREWALL_RTP_EXISTS=$(gcloud compute firewall-rules list --format=json | grep "external-rtp")
   if [ -z "$FIREWALL_RTP_EXISTS" ]; then
     echo "Creating external-rtp firewall rule"
-    gcloud compute firewall-rules create "external-rtp" --allow=udp:10000-60000 --description="Allow RTP related traffic" --direction=INGRESS --source-ranges="0.0.0.0/0" --target-tags="external-rtp,internal-media,freeswitch"
+    gcloud compute firewall-rules create "external-rtp" --allow=udp:10000-60000 --description="Allow RTP related traffic" --direction=INGRESS --source-ranges="0.0.0.0/0" --target-tags="external-rtp,internal-media"
   else
     echo "external-rtp firewall rule already exists"
   fi
@@ -55,8 +55,6 @@ createCluster() {
   gcloud beta container --project "$PROJECT_ID" node-pools create "internal-media" --cluster "$REGION" --zone "$ZONE" --machine-type "$INTERNAL_MEDIA_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "internal-media,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "30" --node-locations "$ZONE"
   # Add the internal-sip node pool to the cluster
   gcloud beta container --project "$PROJECT_ID" node-pools create "internal-sip" --cluster "$REGION" --zone "$ZONE" --machine-type "$INTERNAL_SIP_MACHINE_TYPE" --image-type "COS_CONTAINERD" --disk-type "hyperdisk-balanced" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "2" --enable-autoscaling --min-nodes "2" --max-nodes "10" --location-policy "BALANCED" --enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --shielded-integrity-monitoring --no-shielded-secure-boot --tags "internal-sip,$REGION" --node-locations "$ZONE"
-  # Add the freeswitch node pool to the cluster
-  gcloud beta container --project "$PROJECT_ID" node-pools create "freeswitch" --cluster "$REGION" --zone "$ZONE" --machine-type "$FS_MACHINE_TYPE" --image-type "UBUNTU_CONTAINERD" --disk-type "pd-ssd" --disk-size "100" --metadata disable-legacy-endpoints=true --num-nodes "1" --no-enable-autoupgrade --enable-autorepair --max-surge-upgrade 1 --max-unavailable-upgrade 0 --tags "freeswitch,$REGION" --enable-autoscaling --min-nodes "1" --max-nodes "30" --node-locations "$ZONE"
 
   # Create GKE Multi Cluster Service stuff
   gcloud services enable gkehub.googleapis.com multiclusterservicediscovery.googleapis.com dns.googleapis.com trafficdirector.googleapis.com cloudresourcemanager.googleapis.com --project $PROJECT_ID
@@ -476,10 +474,6 @@ EOF
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/ast --timeout=300s
 
-  kubectl apply -f freeswitch
-  sleep 2
-  kubectl -n $NAMESPACE wait --for=condition=available deploy/fs --timeout=300s
-
   kubectl apply -f kamailio
 
   kubectl apply -f monitor-agent
@@ -535,7 +529,6 @@ INTERNAL_MEDIA_MACHINE_TYPE=$(select_machine_type "internal-media")
 EXTERNAL_SIP_MACHINE_TYPE=$(select_machine_type "external-sip")
 EXTERNAL_RTP_MACHINE_TYPE=$(select_machine_type "external-rtp")
 INTERNAL_SIP_MACHINE_TYPE=$(select_machine_type "internal-sip")
-FS_MACHINE_TYPE=$(select_machine_type "freeswitch")
 
 # Sanity check to make sure the cluster doesn't already exist
 CLUSTER_EXISTS=$(gcloud container clusters list --format=json | grep "$REGION")
