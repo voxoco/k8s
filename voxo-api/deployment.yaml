@@ -21,9 +21,31 @@ spec:
         - name: google-service-account
           secret:
             secretName: google-service-account
+      serviceAccountName: manager
       containers:
+        - name: tailscale
+          image: tailscale/tailscale
+          securityContext:
+            runAsUser: 0
+            capabilities:
+              add: ["NET_ADMIN"]
+          env:
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: ts-oauth
+                  key: key
+            - name: TS_EXTRA_ARGS
+              value: "--advertise-tags=tag:voxo-api --shields-up"
+            - name: TS_USERSPACE
+              value: "false"
+            - name: TS_ACCEPT_DNS
+              value: "true"
+            - name: TS_KUBE_SECRET
+              value: ""
+          imagePullPolicy: Always
         - name: voxo-api
-          image: ghcr.io/voxoco/voxo-api:latest
+          image: us-docker.pkg.dev/voxo-5060/voxoco/voxo-api:latest
           ports:
             - containerPort: 3050
               name: http
@@ -53,6 +75,11 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: mysql-url
+                  key: connectionString
+            - name: MYSQL_INTENT_ENGINE
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-intent-engine-url
                   key: connectionString
             - name: API_JWT_SECRET
               valueFrom:

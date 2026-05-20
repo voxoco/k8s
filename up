@@ -389,6 +389,24 @@ metadata:
 type: Opaque
 stringData:
   key: $(gcloud secrets versions access latest --secret=redis-primary-url | grep -m1 "")
+  
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ts-oauth
+  namespace: $1
+type: Opaque
+stringData:
+  key: $(gcloud secrets versions access latest --secret=ts-oauth | grep -m1 "")
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-intent-engine-url
+  namespace: $1
+type: Opaque
+stringData:
+  connectionString: $(gcloud secrets versions access latest --secret=mysql-intent-engine-url | grep -m1 "")
 
 EOF
 }
