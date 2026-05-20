@@ -6,7 +6,7 @@ metadata:
   labels:
     component: kam-internal
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       component: kam-internal

@@ -74,5 +74,5 @@ spec:
               - key: cloud.google.com/gke-nodepool
                 operator: In
                 values:
-                - external-rtp
+                - default-pool
                 - external-sip

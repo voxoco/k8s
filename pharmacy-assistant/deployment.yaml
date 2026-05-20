@@ -6,7 +6,7 @@ metadata:
   labels:
     component: pharmacy-assistant
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       component: pharmacy-assistant
@@ -28,7 +28,7 @@ spec:
           command: ["python", "agent.py", "start", "--log-level", "debug"]
           resources:
             requests:
-              cpu: 50m
+              cpu: 2500m
           env:
             - name: TZ
               value: America/Chicago
@@ -48,9 +48,6 @@ spec:
         - name: api
           image: us-docker.pkg.dev/voxo-5060/voxoco/pharmacy-assistant:latest
           command: ["python", "sms_api.py", "start", "--log-level", "debug"]
-          resources:
-            requests:
-              cpu: 50m
           env:
             - name: TZ
               value: America/Chicago

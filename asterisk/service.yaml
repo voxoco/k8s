@@ -9,5 +9,7 @@ spec:
   ports:
     - name: http
       port: 3000
+    - name: presence
+      port: 9102
   selector:
     component: asterisk
