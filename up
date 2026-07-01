@@ -480,8 +480,6 @@ EOF
 
   kubectl apply -f omnia-api
   kubectl apply -f voxo-api
-  kubectl apply -f pharmacy-assistant
-
   kubectl apply -f asterisk
   sleep 2
   kubectl -n $NAMESPACE wait --for=condition=available deploy/ast --timeout=300s
