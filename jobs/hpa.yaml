@@ -9,7 +9,7 @@ spec:
     kind: Deployment
     name: jobs
   minReplicas: 3
-  maxReplicas: 10
+  maxReplicas: 15
   metrics:
   - type: Resource
     resource:

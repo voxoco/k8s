@@ -24,7 +24,7 @@ spec:
             - production
             - --type=merge
             - -p
-            - '{"spec":{"minReplicas":2}}'
+            - '{"spec":{"minReplicas":8}}'
           restartPolicy: OnFailure
 ---
 apiVersion: batch/v1
@@ -53,5 +53,5 @@ spec:
             - production
             - --type=merge
             - -p
-            - '{"spec":{"minReplicas":1}}'
+            - '{"spec":{"minReplicas":2}}'
           restartPolicy: OnFailure
