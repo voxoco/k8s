@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: asterisk
+  namespace: production
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      component: asterisk
